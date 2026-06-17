@@ -238,6 +238,7 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg-base);ov
 .recipe-action-btn:active{transform:scale(.97)}
 .btn-share{background:linear-gradient(135deg,var(--rose),var(--peach));color:#fff;box-shadow:0 4px 14px rgba(255,107,157,.3)}
 .btn-cook{background:var(--lav-light);color:var(--lav)}
+.btn-replace{background:rgba(192,132,252,.15);color:var(--lav)}
 
 /* COURSES */
 .courses-wrap{padding:0 18px}
@@ -456,6 +457,7 @@ canvas{max-height:180px}
     <div class="recipe-body" id="rm-body"></div>
     <div class="recipe-actions">
       <button class="recipe-action-btn btn-share" onclick="shareRecipe()">📤 Partager</button>
+      <button class="recipe-action-btn btn-replace" id="btn-replace-recipe" onclick="openReplaceFromRecipe()" style="display:none">🔄 Remplacer</button>
       <button class="recipe-action-btn btn-cook" onclick="closeRecipe()">✓ Fermer</button>
     </div>
   </div>
@@ -903,11 +905,17 @@ function renderMealBubbles(){
 }
 
 // ── RECIPE MODAL ─────────────────────────────────────────────────────────────
+let currentMealIndex = -1;
+
 function openRecipe(mealId){
   const meals=(currentWeekData&&currentWeekData.days&&currentWeekData.days[currentDay])||[];
-  const meal=meals.find(m=>m.id===mealId);
+  const mealIdx=meals.findIndex(m=>m.id===mealId);
+  const meal=mealIdx>=0?meals[mealIdx]:null;
   if(!meal)return;
-  currentMeal=meal;currentPortion=1;selectedCompanionsForRecipe=[];
+  currentMeal=meal;currentMealIndex=mealIdx;currentPortion=1;selectedCompanionsForRecipe=[];
+  // Show replace button only for program meals (not bank recipes)
+  const replBtn=document.getElementById('btn-replace-recipe');
+  if(replBtn) replBtn.style.display='flex';
   const recipe=currentWeekData&&currentWeekData.recipes&&currentWeekData.recipes[mealId];
   document.getElementById('rm-type').textContent=meal.label+(meal.af?' · 🔥 Air fryer':'');
   document.getElementById('rm-title').textContent=meal.name;
@@ -1344,6 +1352,10 @@ function openBankRecipe(bankId) {
   const all = [...RECIPE_BANK.plats, ...RECIPE_BANK.desserts];
   const recipe = all.find(r => r.id === bankId);
   if(!recipe) return;
+  // Hide replace button for bank recipes
+  const replBtn=document.getElementById('btn-replace-recipe');
+  if(replBtn) replBtn.style.display='none';
+  currentMealIndex = -1;
   // Reuse the existing recipe modal
   currentMeal = {
     id: bankId,
@@ -1432,6 +1444,42 @@ function restoreOriginalMeal(mealIndex, e) {
   sS('mealReplacements', mealReplacements);
   renderMealBubbles();
   showToast('Repas original restauré ✓');
+}
+
+
+function openReplaceFromRecipe() {
+  if(currentMealIndex < 0) return;
+  const meals=(currentWeekData&&currentWeekData.days&&currentWeekData.days[currentDay])||[];
+  const meal=meals[currentMealIndex];
+  if(!meal) return;
+  pendingReplaceMealIndex = currentMealIndex;
+  bankCurrentMeal = meal;
+  document.getElementById('replace-meal-name').textContent = meal.name;
+  // Build replace list
+  const all = [...RECIPE_BANK.plats, ...RECIPE_BANK.desserts];
+  const cats = [
+    {key:'plat', label:'Déjeuners & Dîners', emoji:'🥗'},
+    {key:'sale', label:'Plats à partager', emoji:'🧀'},
+    {key:'dessert', label:'Desserts', emoji:'🍮'}
+  ];
+  let html = '';
+  cats.forEach(cat => {
+    const items = all.filter(r => r.cat === cat.key);
+    if(!items.length) return;
+    html += `<div class="replace-cat-title">${cat.emoji} ${cat.label}</div>`;
+    items.forEach(r => {
+      html += `<div class="replace-item" onclick="confirmReplace('${r.id}')">
+        <div style="flex:1">
+          <div class="replace-item-name">${r.name}</div>
+          <div class="replace-item-meta">${r.kcal} kcal · ⏱ ${r.time}</div>
+        </div>
+        <div style="font-size:14px;color:var(--text-soft)">›</div>
+      </div>`;
+    });
+  });
+  document.getElementById('replace-list').innerHTML = html;
+  closeRecipe();
+  document.getElementById('replace-modal').classList.add('open');
 }
 
 function closeReplaceModal() { document.getElementById('replace-modal').classList.remove('open'); }
