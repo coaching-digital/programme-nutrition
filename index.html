@@ -298,6 +298,32 @@ canvas{max-height:180px}
 .impact-choice-icon{font-size:20px;flex-shrink:0}
 .impact-choice-label{font-size:13px;font-weight:700;color:var(--text)}
 .impact-choice-sub{font-size:11px;color:var(--text-soft);font-weight:500;margin-top:1px}
+
+/* RECIPE BANK */
+.bank-pill{background:linear-gradient(135deg,rgba(192,132,252,.15),rgba(255,107,157,.1));border-color:rgba(192,132,252,.3);color:var(--lav);font-weight:800}
+.bank-section-title{font-size:11px;font-weight:800;color:var(--text-soft);text-transform:uppercase;letter-spacing:.07em;padding:14px 18px 8px;margin:0}
+.bank-card{margin:0 18px 10px;padding:14px 16px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:12px}
+.bank-card:active{transform:scale(.98)}
+.bank-card-left{flex:1;min-width:0}
+.bank-card-cat{font-size:10px;font-weight:700;color:var(--text-soft);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+.bank-card-name{font-size:14px;font-weight:700;color:var(--text);line-height:1.3}
+.bank-card-meta{font-size:12px;color:var(--text-soft);margin-top:3px;font-weight:500}
+.bank-card-arrow{color:var(--text-soft);font-size:16px;flex-shrink:0}
+
+/* MEAL REPLACE MODAL */
+.replace-modal{display:none;position:fixed;inset:0;z-index:350;background:rgba(45,27,51,.5);backdrop-filter:blur(6px)}
+.replace-modal.open{display:flex;align-items:flex-end}
+.replace-sheet{background:var(--bg-base);border-radius:24px 24px 0 0;width:100%;max-height:80vh;overflow-y:auto;padding:0 0 40px;position:relative}
+.replace-item{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid rgba(255,107,157,.07);cursor:pointer;transition:background .15s}
+.replace-item:active{background:var(--rose-light)}
+.replace-item:last-child{border-bottom:none}
+.replace-item-name{font-size:14px;font-weight:600;color:var(--text);flex:1;line-height:1.3}
+.replace-item-meta{font-size:11px;color:var(--text-soft);margin-top:2px;font-weight:500}
+.replace-cat-title{font-size:11px;font-weight:800;color:var(--text-soft);text-transform:uppercase;letter-spacing:.07em;padding:12px 20px 6px;background:var(--bg-surface)}
+
+/* REPLACED MEAL INDICATOR */
+.meal-replaced-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;background:rgba(192,132,252,.15);color:var(--lav);padding:2px 8px;border-radius:6px;margin-bottom:5px}
+.meal-restore-btn{font-size:11px;color:var(--text-soft);font-weight:600;background:none;border:none;cursor:pointer;font-family:var(--font);text-decoration:underline;padding:0;margin-top:4px;display:block}
 /* TOAST */
 .toast{position:fixed;bottom:105px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:#fff;padding:10px 20px;border-radius:var(--radius-pill);font-size:13px;font-weight:700;opacity:0;transition:all .3s;z-index:500;white-space:nowrap;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -390,6 +416,20 @@ canvas{max-height:180px}
       <div id="cycle-alert-tips" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
       <button class="btn-save" onclick="document.getElementById('cycle-alert-modal').classList.remove('open')">Merci ! ✓</button>
     </div>
+  </div>
+</div>
+
+
+<!-- REPLACE MEAL MODAL -->
+<div class="replace-modal" id="replace-modal" onclick="closeReplaceIfBackdrop(event)">
+  <div class="replace-sheet">
+    <div class="modal-handle"></div>
+    <button class="modal-close" onclick="closeReplaceModal()">✕</button>
+    <div style="padding:0 20px 14px;border-bottom:1px solid rgba(255,107,157,.1)">
+      <div style="font-size:17px;font-weight:800;color:var(--text);margin-bottom:4px">J'ai mangé autre chose</div>
+      <div style="font-size:13px;color:var(--text-mid);font-weight:500" id="replace-meal-name"></div>
+    </div>
+    <div id="replace-list"></div>
   </div>
 </div>
 
@@ -592,6 +632,25 @@ function calcTarget(poids,taille,genre){
   return Math.round(bmr*1.4-400);
 }
 
+
+// ── BANQUE DE RECETTES ───────────────────────────────────────────────────────
+// Chargée depuis recipes-bank.js via fetch() au démarrage
+let RECIPE_BANK = {plats:[], desserts:[]};
+
+function loadRecipeBank() {
+  fetch('recipes-bank.js?v=' + Date.now())
+    .then(r => r.ok ? r.text() : Promise.reject('HTTP ' + r.status))
+    .then(js => {
+      const fn = new Function(js);
+      fn();
+      if(window.RECIPES_BANK_DATA) {
+        RECIPE_BANK = window.RECIPES_BANK_DATA;
+        console.log('Recipe bank loaded:', RECIPE_BANK.plats.length + RECIPE_BANK.desserts.length, 'recipes');
+      }
+    })
+    .catch(err => console.error('Failed to load recipe bank:', err));
+}
+
 // ── NAV ──────────────────────────────────────────────────────────────────────
 function goScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -787,6 +846,12 @@ function renderDayPills(){
     p.textContent=day.slice(0,3)+(allDone?' ✓':'');
     p.onclick=()=>selectDay(day);s.appendChild(p);
   });
+  // Banque de recettes pill
+  const bp=document.createElement('div');
+  bp.className='day-pill bank-pill';
+  bp.textContent='🍽️ Banque';
+  bp.onclick=showRecipeBank;
+  s.appendChild(bp);
   // Cycle pill — only shown if current week is impacted
   if(currentWeekCyclePhase) {
     const cp=document.createElement('div');
@@ -804,7 +869,7 @@ function toggleCourses(){
   document.getElementById('meals-bubbles').style.display=showingCourses?'none':'flex';
   if(showingCourses)renderCourses();
 }
-function selectDay(day){currentDay=day;showingCourses=false;document.getElementById('courses-section').style.display='none';document.getElementById('meals-bubbles').style.display='flex';renderDayPills();renderMealBubbles();}
+function selectDay(day){currentDay=day;showingCourses=false;document.getElementById('courses-section').style.display='none';const mb=document.getElementById('meals-bubbles');mb.style.display='flex';renderDayPills();renderMealBubbles();}
 function renderCourses(){
   const sec=document.getElementById('courses-section');
   let html='<div class="courses-wrap">';
@@ -920,6 +985,10 @@ function toggleRecipeCmp(i){
 function changePortion(delta){
   currentPortion=Math.max(1,Math.min(6,currentPortion+delta));
   document.getElementById('portion-count').textContent=currentPortion;
+  // Check if bank recipe
+  const all=[...RECIPE_BANK.plats,...RECIPE_BANK.desserts];
+  const bankR=all.find(r=>r.id===currentMeal?.id);
+  if(bankR){openBankRecipe(bankR.id);return;}
   const recipe=currentWeekData&&currentWeekData.recipes&&currentWeekData.recipes[currentMeal?.id];
   document.getElementById('rm-body').innerHTML=recipe?buildRecipeBody(recipe,currentPortion):buildSimpleBody(currentMeal);
 }
@@ -994,6 +1063,7 @@ function renderSuivi(){
 
 // ── CYCLE FÉMININ ────────────────────────────────────────────────────────────
 let cycleData = gS('cycleData', {regles: null, ovulation: null});
+let mealReplacements = gS('mealReplacements', {}); // {key: {replacedBy: bankId, original: mealId}}
 
 function openCycleModal() {
   if(cycleData.regles) document.getElementById('cycle-regles').value = cycleData.regles;
@@ -1237,7 +1307,138 @@ function saveEventWithImpact() {
 function closeEventImpactModal() { document.getElementById('event-impact-modal').classList.remove('open'); }
 function closeEventImpactIfBackdrop(e) { if(e.target===document.getElementById('event-impact-modal')) closeEventImpactModal(); }
 
+
+// ── BANQUE DE RECETTES ───────────────────────────────────────────────────────
+let bankCurrentMeal = null; // meal being replaced
+
+function showRecipeBank() {
+  // Show recipe bank in the meals area
+  document.getElementById('courses-section').style.display = 'none';
+  document.getElementById('meals-bubbles').style.display = 'flex';
+  const list = document.getElementById('meals-bubbles');
+  const cats = [
+    {key:'plat', label:'Déjeuners & Dîners', emoji:'🥗'},
+    {key:'sale', label:'Plats à partager', emoji:'🧀'},
+    {key:'dessert', label:'Desserts', emoji:'🍮'}
+  ];
+  let html = '';
+  cats.forEach(cat => {
+    const items = [...RECIPE_BANK.plats, ...RECIPE_BANK.desserts].filter(r => r.cat === cat.key);
+    if(!items.length) return;
+    html += `<div class="bank-section-title">${cat.emoji} ${cat.label}</div>`;
+    items.forEach(r => {
+      html += `<div class="bank-card glass-card" onclick="openBankRecipe('${r.id}')">
+        <div class="bank-card-left">
+          <div class="bank-card-cat">${r.label}</div>
+          <div class="bank-card-name">${r.name}</div>
+          <div class="bank-card-meta">${r.kcal} kcal · P${r.p}g · G${r.g}g · L${r.l}g · ⏱ ${r.time}</div>
+        </div>
+        <div class="bank-card-arrow">›</div>
+      </div>`;
+    });
+  });
+  list.innerHTML = html;
+}
+
+function openBankRecipe(bankId) {
+  const all = [...RECIPE_BANK.plats, ...RECIPE_BANK.desserts];
+  const recipe = all.find(r => r.id === bankId);
+  if(!recipe) return;
+  // Reuse the existing recipe modal
+  currentMeal = {
+    id: bankId,
+    name: recipe.name,
+    label: recipe.label,
+    desc: `${recipe.kcal} kcal · P${recipe.p}g · G${recipe.g}g · L${recipe.l}g · ⏱ ${recipe.time}`,
+    kcal: recipe.kcal, p: recipe.p, g: recipe.g, l: recipe.l
+  };
+  currentPortion = 1;
+  selectedCompanionsForRecipe = [];
+  document.getElementById('rm-type').textContent = recipe.label + ' · Banque de recettes';
+  document.getElementById('rm-title').textContent = recipe.name;
+  document.getElementById('rm-desc').textContent = `⏱ ${recipe.time}`;
+  document.getElementById('rm-macros').innerHTML = `<span class="macro-chip chip-kcal">${recipe.kcal} kcal</span><span class="macro-chip chip-p">P ${recipe.p}g</span><span class="macro-chip chip-g">G ${recipe.g}g</span><span class="macro-chip chip-l">L ${recipe.l}g</span>`;
+  renderRecipeCompanions();
+  document.getElementById('portion-count').textContent = 1;
+  // Build ingredients + steps
+  let body = '';
+  if(recipe.ingredients && recipe.ingredients.length) {
+    body += `<div class="ing-section-title">Ingrédients</div>
+    <table class="ing-table"><thead><tr><th>Ingrédient</th><th>Quantité</th></tr></thead><tbody>`;
+    recipe.ingredients.forEach(ing => {
+      body += `<tr><td>${ing.name}</td><td>${formatQty(ing.base * currentPortion, ing.unit)}</td></tr>`;
+    });
+    body += `</tbody></table>`;
+  }
+  body += `<div class="ing-section-title">Étapes de préparation</div>` + recipe.steps;
+  document.getElementById('rm-body').innerHTML = body;
+  document.getElementById('recipe-modal').classList.add('open');
+}
+
+// ── MEAL REPLACEMENT ─────────────────────────────────────────────────────────
+let pendingReplaceMealIndex = -1;
+
+function promptReplaceMeal(mealIndex, e) {
+  e.stopPropagation();
+  const meals = (currentWeekData && currentWeekData.days && currentWeekData.days[currentDay]) || [];
+  const meal = meals[mealIndex];
+  if(!meal) return;
+  pendingReplaceMealIndex = mealIndex;
+  bankCurrentMeal = meal;
+  document.getElementById('replace-meal-name').textContent = meal.name;
+  // Build list of bank recipes
+  const all = [...RECIPE_BANK.plats, ...RECIPE_BANK.desserts];
+  const cats = [
+    {key:'plat', label:'Déjeuners & Dîners', emoji:'🥗'},
+    {key:'sale', label:'Plats à partager', emoji:'🧀'},
+    {key:'dessert', label:'Desserts', emoji:'🍮'}
+  ];
+  let html = '';
+  cats.forEach(cat => {
+    const items = all.filter(r => r.cat === cat.key);
+    if(!items.length) return;
+    html += `<div class="replace-cat-title">${cat.emoji} ${cat.label}</div>`;
+    items.forEach(r => {
+      html += `<div class="replace-item" onclick="confirmReplace('${r.id}')">
+        <div style="flex:1">
+          <div class="replace-item-name">${r.name}</div>
+          <div class="replace-item-meta">${r.kcal} kcal · ⏱ ${r.time}</div>
+        </div>
+        <div style="font-size:14px;color:var(--text-soft)">›</div>
+      </div>`;
+    });
+  });
+  document.getElementById('replace-list').innerHTML = html;
+  document.getElementById('replace-modal').classList.add('open');
+}
+
+function confirmReplace(bankId) {
+  const key = `w${currentWeek}-${currentDay}-${pendingReplaceMealIndex}`;
+  const meals = (currentWeekData && currentWeekData.days && currentWeekData.days[currentDay]) || [];
+  mealReplacements[key] = {
+    replacedBy: bankId,
+    originalName: meals[pendingReplaceMealIndex]?.name || ''
+  };
+  sS('mealReplacements', mealReplacements);
+  closeReplaceModal();
+  renderMealBubbles();
+  showToast('Repas remplacé ✓');
+}
+
+function restoreOriginalMeal(mealIndex, e) {
+  e.stopPropagation();
+  const key = `w${currentWeek}-${currentDay}-${mealIndex}`;
+  delete mealReplacements[key];
+  sS('mealReplacements', mealReplacements);
+  renderMealBubbles();
+  showToast('Repas original restauré ✓');
+}
+
+function closeReplaceModal() { document.getElementById('replace-modal').classList.remove('open'); }
+function closeReplaceIfBackdrop(e) { if(e.target===document.getElementById('replace-modal')) closeReplaceModal(); }
+
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+loadRecipeBank();
 renderHome();
 </script>
 </body>
