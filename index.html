@@ -765,11 +765,13 @@ function openWeek(w){
   loadWeek(w, (data) => {
     if(!data){ document.getElementById('meals-bubbles').innerHTML="<div class=\"empty-state\"><div class=\"empty-icon\">😔</div><div class=\"empty-title\">Semaine non disponible</div><div class=\"empty-sub\">Disponible prochainement.</div></div>"; return; }
     currentWeekData=data;
-    renderDayPills();renderMealBubbles();updateWeekCheckCount();
     if(dates) {
       const phase = checkWeekCycle(dates.startD, dates.endD);
-      if(phase) currentWeekCyclePhase = phase; else currentWeekCyclePhase = null;
+      currentWeekCyclePhase = phase || null;
+    } else {
+      currentWeekCyclePhase = null;
     }
+    renderDayPills();renderMealBubbles();updateWeekCheckCount();
   });
 }
 function closeWeek(){document.getElementById('week-screen').classList.remove('open');currentWeekCyclePhase=null;}
