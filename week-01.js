@@ -267,8 +267,3 @@ window.WEEK_DATA_1 = {
   recipes: RECIPES,
   days: DAYS_DATA
 };
-
-if (window._weekLoadCallbacks && window._weekLoadCallbacks[1]) {
-  window._weekLoadCallbacks[1](window.WEEK_DATA_1);
-  delete window._weekLoadCallbacks[1];
-}
