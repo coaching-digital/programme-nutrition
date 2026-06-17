@@ -747,6 +747,7 @@ function renderProg(){
 
 // ── WEEK OVERLAY ─────────────────────────────────────────────────────────────
 let currentWeekData = null;
+let currentWeekCyclePhase = null;
 
 function openWeek(w){
   currentWeek=w;currentDay='Lundi';
@@ -767,11 +768,11 @@ function openWeek(w){
     renderDayPills();renderMealBubbles();updateWeekCheckCount();
     if(dates) {
       const phase = checkWeekCycle(dates.startD, dates.endD);
-      if(phase) setTimeout(()=>openCycleAlert(phase), 500);
+      if(phase) currentWeekCyclePhase = phase; else currentWeekCyclePhase = null;
     }
   });
 }
-function closeWeek(){document.getElementById('week-screen').classList.remove('open');}
+function closeWeek(){document.getElementById('week-screen').classList.remove('open');currentWeekCyclePhase=null;}
 function renderDayPills(){
   const s=document.getElementById('days-scroll');s.innerHTML='';
   const cp=document.createElement('div');cp.className='day-pill courses-pill';cp.textContent='🛒 Courses';cp.onclick=toggleCourses;s.appendChild(cp);
@@ -784,6 +785,16 @@ function renderDayPills(){
     p.textContent=day.slice(0,3)+(allDone?' ✓':'');
     p.onclick=()=>selectDay(day);s.appendChild(p);
   });
+  // Cycle pill — only shown if current week is impacted
+  if(currentWeekCyclePhase) {
+    const cp=document.createElement('div');
+    const isR=currentWeekCyclePhase==='regles';
+    cp.className='day-pill';
+    cp.style.cssText=`background:${isR?'rgba(255,107,157,.12)':'rgba(255,179,71,.12)'};border-color:${isR?'rgba(255,107,157,.3)':'rgba(255,179,71,.3)'};color:${isR?'var(--rose)':'var(--peach)'};font-weight:800;flex-shrink:0`;
+    cp.textContent=isR?'🩷 Règles':'✨ Ovulation';
+    cp.onclick=()=>openCycleAlert(currentWeekCyclePhase);
+    s.appendChild(cp);
+  }
 }
 function toggleCourses(){
   showingCourses=!showingCourses;
