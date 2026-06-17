@@ -167,7 +167,7 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg-base);ov
 .meal-left{flex:1;min-width:0}
 .meal-type-row{display:flex;align-items:center;gap:6px;margin-bottom:3px}
 .type-dot{width:7px;height:7px;border-radius:3px;flex-shrink:0}
-.dot-pdj{background:var(--lav)}.dot-col{background:var(--peach)}.dot-dej{background:var(--rose)}.dot-din{background:var(--coral)}
+.dot-pdj{background:var(--lav)}.dot-col{background:var(--peach)}.dot-dej{background:var(--rose)}.dot-din{background:var(--coral)}.dot-des{background:#B39BBF}
 .meal-type-label{font-size:10px;font-weight:700;color:var(--text-soft);text-transform:uppercase;letter-spacing:.06em}
 .meal-name{font-size:14px;font-weight:700;color:var(--text);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .meal-kcal{font-size:11px;color:var(--text-soft);margin-top:2px;font-weight:600}
@@ -532,230 +532,59 @@ let companions=gS('companions',[]);
 let events=gS('calEvents',[]);
 let startDate=gS('startDate',null);
 
-// ── WEEK DATA (condensed) ────────────────────────────────────────────────────
-const W1_COURSES={"Protéines":[{l:"Blancs de poulet",q:"600g"},{l:"Steak haché 5% MG",q:"300g"},{l:"Dinde hachée",q:"300g"},{l:"Saumon (pavés)",q:"300g"},{l:"Oeufs",q:"12"},{l:"Yaourt grec nature",q:"4 pots"},{l:"Fromage blanc 0%",q:"450g"}],"Légumes & fruits":[{l:"Courgettes",q:"4"},{l:"Patates douces",q:"1 kg"},{l:"Épinards frais",q:"300g"},{l:"Brocoli",q:"1 tête"},{l:"Tomates cerises",q:"250g"},{l:"Courge butternut",q:"1"},{l:"Carottes",q:"500g"},{l:"Concombre",q:"1"},{l:"Pommes",q:"4"},{l:"Bananes",q:"5"},{l:"Fruits rouges",q:"300g"}],"Féculents":[{l:"Flocons d'avoine",q:"500g"},{l:"Riz basmati",q:"500g"},{l:"Pâtes complètes",q:"500g"},{l:"Lentilles vertes",q:"400g"},{l:"Lentilles corail",q:"200g"},{l:"Pois chiches cuits",q:"2 boîtes"},{l:"Pain complet maison",q:"1 miche"}],"Laitiers":[{l:"Feta",q:"200g"},{l:"Gruyère râpé allégé",q:"100g"},{l:"Parmesan",q:"50g"},{l:"Crème légère",q:"20cl"},{l:"Lait demi-écrémé",q:"1L"}],"Épicerie":[{l:"Chocolat noir 85%",q:"1 tablette"},{l:"Purée d'amande",q:"1 pot"},{l:"Huile d'olive",q:"1 bouteille"},{l:"Miel brut",q:"1 pot"},{l:"Sauce soja",q:"1 bouteille"},{l:"Lait de coco léger",q:"1 boîte"},{l:"Tomates concassées",q:"2 boîtes"},{l:"Tahini",q:"1 pot"},{l:"Graines de chia",q:"1 sachet"},{l:"Amandes",q:"200g"},{l:"Noix",q:"100g"},{l:"Galettes de riz complet",q:"1 paquet"},{l:"Garam masala",q:"1 bocal"},{l:"Curry en poudre",q:"1 bocal"}]};
+// ── WEEK LOADER ─────────────────────────────────────────────────────────────
+// Les données de chaque semaine sont dans week-XX.html
+// L'index charge dynamiquement le fichier de la semaine demandée
 
-function makeSteps(steps){
-  return steps.map(s=>`<div class="step-block">
-    <div class="step-header">
-      <div class="step-num">${s.n}</div>
-      <div class="step-title">${s.title}</div>
-      ${s.time?`<span class="step-timing">⏱ ${s.time}</span>`:''}
-    </div>
-    <div class="step-desc">${s.desc}</div>
-    ${s.tip?`<div class="step-tip">${s.tip}</div>`:''}
-  </div>`).join('');
+let loadedWeeks = {}; // cache des semaines déjà chargées
+
+function loadWeek(weekNum, callback) {
+  if (loadedWeeks[weekNum]) {
+    callback(loadedWeeks[weekNum]);
+    return;
+  }
+  const filename = `week-${String(weekNum).padStart(2,'0')}.html`;
+  const iframe = document.createElement('iframe');
+  iframe.style.display = 'none';
+  iframe.src = filename;
+  iframe.onload = () => {
+    try {
+      const data = iframe.contentWindow.WEEK_DATA;
+      if (data) {
+        loadedWeeks[weekNum] = data;
+        callback(data);
+      } else {
+        // Retry once after short delay (script might still be executing)
+        setTimeout(() => {
+          const data2 = iframe.contentWindow.WEEK_DATA;
+          if (data2) { loadedWeeks[weekNum] = data2; callback(data2); }
+          else callback(null);
+          document.body.removeChild(iframe);
+        }, 200);
+        return;
+      }
+    } catch(e) { console.error('Week load error:', e); callback(null); }
+    document.body.removeChild(iframe);
+  };
+  iframe.onerror = () => { callback(null); document.body.removeChild(iframe); };
+  document.body.appendChild(iframe);
 }
 
-const RECIPES={
-  "lun-pdj":{
-    title:"Toasts avocat & oeufs cocotte air fryer",
-    ingredients:[{name:"Pain complet",base:60,unit:"g"},{name:"Oeufs",base:2,unit:""},{name:"Avocat mûr",base:0.5,unit:"entier"},{name:"Piment doux",base:1,unit:"pincée"},{name:"Jus de citron",base:0.5,unit:"c.à.c."},{name:"Sel, poivre",base:1,unit:"pincée"}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Préchauffer l'air fryer</div><span class="step-timing">⏱ 3 min</span></div><div class="step-desc">Réglez l'air fryer à 160°C et laissez préchauffer 3 minutes. Essentiel pour une cuisson homogène.</div><div class="step-tip">Ne sautez jamais le préchauffage — un air fryer froid prolonge la cuisson et donne un blanc pas pris.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Préparer les oeufs</div><span class="step-timing">⏱ 1 min</span></div><div class="step-desc">Cassez chaque oeuf dans un ramequin allant au four. Ajoutez sel et poivre.</div><div class="step-tip">Oeufs à température ambiante (sortis 15 min avant) pour un blanc pris parfait sans jaune cuit.</div></div><div class="step-block"><div class="step-header"><div class="step-num">3</div><div class="step-title">Cuire les oeufs</div><span class="step-timing">⏱ 12 min</span></div><div class="step-desc">Posez les ramequins dans le panier. Cuire 12 min à 160°C. Blanc pris, jaune coulant. +2-3 min pour jaune bien cuit.</div><div class="step-tip">Surveillez à 10 min la première fois pour calibrer votre air fryer.</div></div><div class="step-block"><div class="step-header"><div class="step-num">4</div><div class="step-title">Préparer l'avocat</div><span class="step-timing">⏱ 2 min</span></div><div class="step-desc">Écrasez la chair à la fourchette avec citron, piment doux et sel.</div><div class="step-tip">Le citron empêche l'avocat de noircir — ajoutez-en dès que vous l'écrasez.</div></div><div class="step-block"><div class="step-header"><div class="step-num">5</div><div class="step-title">Toaster et dresser</div><span class="step-timing">⏱ 2 min</span></div><div class="step-desc">Toastez le pain, étalez l'avocat, déposez les oeufs par-dessus. Pincée de piment. Mangez immédiatement.</div></div>`
-  },
-  "lun-col1":{
-    title:"Yaourt grec + noix",
-    ingredients:[{name:"Yaourt grec nature",base:150,unit:"g"},{name:"Noix",base:20,unit:"g"},{name:"Miel brut (optionnel)",base:1,unit:"c.à.c."}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Préparer la veille</div><span class="step-timing">⏱ 2 min</span></div><div class="step-desc">Versez le yaourt dans un petit pot hermétique. Concassez grossièrement les noix et posez-les dessus. Fermez et mettez au frigo.</div><div class="step-tip">Préparez 2-3 pots d'avance le dimanche — toujours prêt, jamais tenté par le distributeur.</div></div>`
-  },
-  "lun-dej":{
-    title:"Poulet citron-herbes & patate douce rôtie",
-    ingredients:[{name:"Blanc de poulet",base:150,unit:"g"},{name:"Patate douce",base:200,unit:"g"},{name:"Citron (zeste+jus)",base:1,unit:""},{name:"Romarin",base:1,unit:"c.à.c."},{name:"Thym",base:1,unit:"c.à.c."},{name:"Ail",base:2,unit:"gousses"},{name:"Huile d'olive",base:1,unit:"c.à.s."}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Mariner le poulet</div><span class="step-timing">⏱ 10 min</span></div><div class="step-desc">Mélangez citron, herbes, ail écrasé, sel, huile. Enrobez le poulet et laissez mariner minimum 10 min (idéalement la veille au frigo).</div><div class="step-tip">Plus la marinade est longue, plus le poulet sera juteux et parfumé.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Préchauffer le four</div><span class="step-timing">⏱ 5 min</span></div><div class="step-desc">Préchauffez à 200°C. Pendant ce temps, pelez et coupez la patate douce en cubes de 2 cm. Assaisonnez d'huile, sel, paprika.</div></div><div class="step-block"><div class="step-header"><div class="step-num">3</div><div class="step-title">Rôtir</div><span class="step-timing">⏱ 25 min</span></div><div class="step-desc">Disposez poulet et patate douce sur une plaque. Four 200°C, 25 min en retournant à mi-cuisson. La patate doit être dorée, le poulet sans rose à coeur.</div><div class="step-tip">Laissez reposer 5 min avant de couper le poulet — les sucs se redistribuent et c'est plus juteux.</div></div><div class="step-block"><div class="step-header"><div class="step-num">4</div><div class="step-title">Préparer la boîte</div><span class="step-timing">⏱ 2 min</span></div><div class="step-desc">Laissez refroidir 10 min puis mettez en boîte hermétique avec salade verte. Se réchauffe 2 min au micro-ondes le lendemain.</div></div>`
-  },
-  "lun-col2":{
-    title:"Pomme + purée d'amande",
-    ingredients:[{name:"Pomme",base:1,unit:""},{name:"Purée d'amande complète",base:20,unit:"g"}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Préparer dans la journée</div></div><div class="step-desc">Mettez la purée d'amande dans un petit contenant hermétique. Emportez la pomme entière — coupez-la au moment de manger pour éviter l'oxydation.</div><div class="step-tip">La combinaison sucre lent (pomme) + protéines et bons gras (amande) = satiété garantie jusqu'au dîner.</div></div>`
-  },
-  "lun-din":{
-    title:"Curry de pois chiches, épinards & lait de coco",
-    ingredients:[{name:"Pois chiches cuits",base:200,unit:"g"},{name:"Épinards frais",base:100,unit:"g"},{name:"Lait de coco léger",base:100,unit:"ml"},{name:"Tomates concassées",base:200,unit:"g"},{name:"Oignon",base:1,unit:""},{name:"Ail",base:2,unit:"gousses"},{name:"Gingembre frais",base:1,unit:"c.à.c."},{name:"Curry en poudre",base:1,unit:"c.à.s."},{name:"Cumin",base:0.5,unit:"c.à.c."}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Faire revenir les aromates</div><span class="step-timing">⏱ 3 min</span></div><div class="step-desc">Émincez l'oignon et écrasez l'ail. Faites-les revenir à feu moyen dans un filet d'huile jusqu'à ce qu'ils soient translucides.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Toaster les épices</div><span class="step-timing">⏱ 1 min</span></div><div class="step-desc">Ajoutez curry, cumin et gingembre. Mélangez 1 minute — les épices "fleurissent" au contact de la chaleur et développent tous leurs arômes.</div><div class="step-tip">Ne brûlez pas les épices ! Si ça accroche, ajoutez une lichette d'eau.</div></div><div class="step-block"><div class="step-header"><div class="step-num">3</div><div class="step-title">Mijoter</div><span class="step-timing">⏱ 10 min</span></div><div class="step-desc">Ajoutez tomates concassées + pois chiches. Mélangez, couvrez et laissez mijoter 10 minutes à feu doux.</div></div><div class="step-block"><div class="step-header"><div class="step-num">4</div><div class="step-title">Finir et servir</div><span class="step-timing">⏱ 5 min</span></div><div class="step-desc">Versez le lait de coco + ajoutez les épinards. Cuisez 5 min — les épinards tombent vite. Goûtez et ajustez le sel.</div><div class="step-tip">Ce curry est encore meilleur le lendemain réchauffé — les saveurs ont eu le temps de se marier.</div></div>`
-  },
-  "mar-pdj":{
-    title:"Porridge avoine-banane-cannelle",
-    ingredients:[{name:"Flocons d'avoine",base:60,unit:"g"},{name:"Lait demi-écrémé",base:200,unit:"ml"},{name:"Banane",base:1,unit:""},{name:"Cannelle",base:1,unit:"c.à.c."},{name:"Miel brut",base:1,unit:"c.à.c."}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Cuire les flocons</div><span class="step-timing">⏱ 5 min</span></div><div class="step-desc">Versez flocons + lait dans une casserole. Feu moyen-doux. Remuez régulièrement pendant 5 minutes jusqu'à consistance crémeuse.</div><div class="step-tip">Ne quittez pas des yeux — le lait peut déborder vite. Remuez souvent pour éviter que ça colle.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Incorporer la banane</div><span class="step-timing">⏱ 1 min</span></div><div class="step-desc">Écrasez ½ banane directement dans la casserole hors du feu — elle sucrée naturellement le porridge. Tranchez l'autre ½ pour le dessus.</div><div class="step-tip">La cannelle aide à réguler la glycémie — moins d'envies de sucre dans la matinée.</div></div><div class="step-block"><div class="step-header"><div class="step-num">3</div><div class="step-title">Dresser</div></div><div class="step-desc">Versez dans un bol. Disposez les tranches de banane, saupoudrez de cannelle. Ajoutez le miel si besoin de plus de douceur.</div></div>`
-  },
-  "mar-col1":{
-    title:"Chocolat noir 85% + orange",
-    ingredients:[{name:"Chocolat noir 85%",base:2,unit:"carrés"},{name:"Orange",base:1,unit:""}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Savourer lentement</div></div><div class="step-desc">Laissez fondre les 2 carrés de chocolat en bouche plutôt que de les croquer. La dégustation lente active la satiété plus rapidement.</div><div class="step-tip">Le chocolat noir à 85% n'est pas un plaisir coupable — c'est un aliment. Riche en magnésium, il coupe les envies sucrées en quelques minutes. 2 carrés suffisent vraiment.</div></div>`
-  },
-  "mar-dej":{
-    title:"Salade pâtes complètes & feta air fryer",
-    ingredients:[{name:"Pâtes complètes",base:80,unit:"g"},{name:"Feta",base:80,unit:"g"},{name:"Courgette",base:0.5,unit:""},{name:"Poivron rouge",base:0.5,unit:""},{name:"Olives noires",base:30,unit:"g"},{name:"Basilic frais",base:5,unit:"feuilles"},{name:"Huile d'olive",base:1,unit:"c.à.s."},{name:"Jus de citron",base:1,unit:"c.à.s."}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Cuire les pâtes</div><span class="step-timing">⏱ 10 min</span></div><div class="step-desc">Cuisez les pâtes al dente selon les instructions. Égouttez et rincez à l'eau froide pour stopper la cuisson et refroidir.</div><div class="step-tip">Rincez bien à l'eau froide — c'est ce qui donne une salade de pâtes non collante.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Feta croustillante air fryer</div><span class="step-timing">⏱ 8 min</span></div><div class="step-desc">Coupez la feta en cube, posez dans le panier air fryer. 8 min à 200°C. Elle doit être dorée et légèrement croustillante en surface.</div><div class="step-tip">La feta air fryer change tout — croustillante dehors, fondante dedans. Ne la cuisez pas trop longtemps ou elle sèche.</div></div><div class="step-block"><div class="step-header"><div class="step-num">3</div><div class="step-title">Assembler</div><span class="step-timing">⏱ 3 min</span></div><div class="step-desc">Mélangez pâtes + courgette coupée + poivron + olives + basilic ciselé. Assaisonnez huile d'olive + citron + sel + poivre. Ajoutez la feta tiède dessus.</div><div class="step-tip">Meilleure le lendemain ! Les pâtes absorbent la vinaigrette pendant la nuit.</div></div>`
-  },
-  "mar-col2":{
-    title:"Houmous maison + légumes",
-    ingredients:[{name:"Pois chiches cuits",base:200,unit:"g"},{name:"Tahini",base:2,unit:"c.à.s."},{name:"Citron",base:1,unit:""},{name:"Ail",base:1,unit:"gousse"},{name:"Huile d'olive",base:3,unit:"c.à.s."},{name:"Cumin",base:0.5,unit:"c.à.c."},{name:"Carottes",base:2,unit:""},{name:"Concombre",base:0.5,unit:""}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Mixez le houmous (batch dimanche)</div><span class="step-timing">⏱ 5 min</span></div><div class="step-desc">Mixez pois chiches + tahini + citron + ail + huile d'olive + cumin + sel. Ajoutez 2-3 c.à.s. d'eau froide pour obtenir une texture onctueuse.</div><div class="step-tip">Le secret d'un houmous soyeux : mixez longtemps (3-4 min) et ajoutez l'eau progressivement. Conservez 5 jours au frigo.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Préparer les légumes</div><span class="step-timing">⏱ 3 min</span></div><div class="step-desc">Pelez et coupez carottes et concombre en bâtonnets. Mettez dans une boîte hermétique avec le houmous à côté.</div></div>`
-  },
-  "mar-din":{
-    title:"Hachis parmentier allégé patate douce",
-    ingredients:[{name:"Steak haché 5% MG",base:150,unit:"g"},{name:"Patate douce",base:250,unit:"g"},{name:"Pomme de terre",base:100,unit:"g"},{name:"Oignon",base:1,unit:""},{name:"Ail",base:2,unit:"gousses"},{name:"Herbes de Provence",base:1,unit:"c.à.s."},{name:"Gruyère râpé allégé",base:20,unit:"g"},{name:"Lait",base:50,unit:"ml"}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Cuire la viande</div><span class="step-timing">⏱ 8 min</span></div><div class="step-desc">Faites revenir l'oignon émincé 3 min. Ajoutez la viande hachée, émiettez-la à la spatule. Assaisonnez avec ail + herbes + sel + poivre. Cuisez jusqu'à ce qu'il n'y ait plus de rose.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Purée patate douce</div><span class="step-timing">⏱ 20 min</span></div><div class="step-desc">Cuisez patate douce + pomme de terre à la vapeur 20 min. Écrasez avec un peu de lait chaud, sel et muscade. Ne fouettez pas trop — la patate douce devient collante.</div><div class="step-tip">La patate douce apporte une douceur naturelle — moins de calories, plus de vitamines que la pomme de terre seule.</div></div><div class="step-block"><div class="step-header"><div class="step-num">3</div><div class="step-title">Gratiner au four</div><span class="step-timing">⏱ 20 min</span></div><div class="step-desc">Disposez la viande dans un plat. Recouvrez de purée à la spatule. Parsemez de gruyère râpé. Enfournez 20 min à 200°C jusqu'à gratinage doré.</div></div>`
-  },
-  "mer-pdj":{
-    title:"Pancakes protéinés avoine-banane",
-    ingredients:[{name:"Banane mûre",base:1,unit:""},{name:"Oeufs",base:2,unit:""},{name:"Flocons d'avoine",base:40,unit:"g"},{name:"Cannelle",base:0.5,unit:"c.à.c."},{name:"Fruits rouges",base:80,unit:"g"}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Préparer la pâte</div><span class="step-timing">⏱ 3 min</span></div><div class="step-desc">Mixez ensemble : banane + oeufs + flocons d'avoine + cannelle. La pâte doit être lisse et légèrement épaisse.</div><div class="step-tip">Laissez reposer 2 min — les flocons absorbent et la pâte épaissit, ce qui donne des pancakes qui ne s'effondrent pas.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Cuire les pancakes</div><span class="step-timing">⏱ 8 min</span></div><div class="step-desc">Poêle antiadhésive à feu moyen, sans matière grasse. Versez des petites portions (3 cm de diamètre). 2-3 min par côté. Retournez quand des bulles apparaissent en surface.</div><div class="step-tip">Feu moyen uniquement — trop chaud et l'extérieur brûle avant que l'intérieur soit cuit.</div></div><div class="step-block"><div class="step-header"><div class="step-num">3</div><div class="step-title">Servir</div></div><div class="step-desc">Empilez les pancakes, ajoutez les fruits rouges dessus. Un filet de miel brut si besoin.</div></div>`
-  },
-  "mer-col1":{
-    title:"Fromage blanc + miel + graines de courge",
-    ingredients:[{name:"Fromage blanc 0%",base:150,unit:"g"},{name:"Miel brut",base:1,unit:"c.à.c."},{name:"Graines de courge",base:10,unit:"g"}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Assembler</div><span class="step-timing">⏱ 1 min</span></div><div class="step-desc">Versez le fromage blanc dans un bol ou pot. Drizzlez le miel en spirale. Ajoutez les graines de courge dessus.</div><div class="step-tip">Les graines de courge apportent zinc et magnésium — parfait en milieu de semaine quand la fatigue arrive.</div></div>`
-  },
-  "mer-dej":{
-    title:"Saumon air fryer, riz basmati & brocoli",
-    ingredients:[{name:"Pavé de saumon",base:150,unit:"g"},{name:"Riz basmati",base:80,unit:"g"},{name:"Brocoli",base:150,unit:"g"},{name:"Sauce soja",base:2,unit:"c.à.s."},{name:"Citron vert (jus)",base:1,unit:""},{name:"Gingembre frais râpé",base:1,unit:"c.à.c."},{name:"Miel brut",base:1,unit:"c.à.c."}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Préparer la sauce</div><span class="step-timing">⏱ 2 min</span></div><div class="step-desc">Mélangez sauce soja + jus de citron vert + gingembre râpé + miel. Goûtez — la sauce doit être équilibrée entre salé, acide et sucré.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Cuire le saumon</div><span class="step-timing">⏱ 10 min</span></div><div class="step-desc">Badigeonnez le pavé d'un peu de sauce. Air fryer 180°C, 10 minutes. La chair doit être opaque et se défaire facilement à la fourchette.</div><div class="step-tip">Le saumon à l'air fryer est une révélation — peau croustillante, chair fondante. Ne le cuisez pas trop longtemps.</div></div><div class="step-block"><div class="step-header"><div class="step-num">3</div><div class="step-title">Riz et brocoli</div><span class="step-timing">⏱ 12 min</span></div><div class="step-desc">Pendant la cuisson du saumon : cuisez le riz basmati (absorption). Faites cuire le brocoli en bouquets 5 min à la vapeur — il doit rester croquant et vert vif.</div></div><div class="step-block"><div class="step-header"><div class="step-num">4</div><div class="step-title">Assembler la boîte</div><span class="step-timing">⏱ 2 min</span></div><div class="step-desc">Riz en base, brocoli d'un côté, saumon dessus. Nappez du reste de sauce au moment de mettre en boîte.</div></div>`
-  },
-  "mer-col2":{
-    title:"Amandes + poire",
-    ingredients:[{name:"Amandes",base:25,unit:"g"},{name:"Poire",base:1,unit:""}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Préparer à l'avance</div></div><div class="step-desc">Mettez vos amandes dans un petit sachet la veille. Emportez la poire entière et coupez-la au moment de manger.</div><div class="step-tip">Préparer à l'avance est la clé — quand vous avez faim, vous ne voulez pas chercher ou préparer.</div></div>`
-  },
-  "mer-din":{
-    title:"Soupe veloutée courge-lentilles corail",
-    ingredients:[{name:"Courge butternut",base:300,unit:"g"},{name:"Lentilles corail",base:60,unit:"g"},{name:"Oignon",base:1,unit:""},{name:"Bouillon maison",base:500,unit:"ml"},{name:"Cumin",base:1,unit:"c.à.c."},{name:"Gingembre frais",base:1,unit:"c.à.s."},{name:"Pain complet",base:1,unit:"tranche"}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Faire revenir oignon</div><span class="step-timing">⏱ 3 min</span></div><div class="step-desc">Émincez l'oignon. Faites-le revenir dans un filet d'huile à feu moyen jusqu'à ce qu'il soit translucide.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Ajouter les légumes et cuire</div><span class="step-timing">⏱ 20 min</span></div><div class="step-desc">Ajoutez la courge en cubes, les lentilles corail rincées, le bouillon chaud, cumin et gingembre. Portez à ébullition puis baissez à feu doux. Couvrez et cuisez 20 min.</div><div class="step-tip">Les lentilles corail n'ont pas besoin de trempage et fondent dans la soupe — elles disparaissent et apportent protéines et onctuosité.</div></div><div class="step-block"><div class="step-header"><div class="step-num">3</div><div class="step-title">Mixer et servir</div><span class="step-timing">⏱ 2 min</span></div><div class="step-desc">Mixez jusqu'à obtenir un velouté lisse. Goûtez et ajustez sel + épices. Servez avec une tranche de pain complet toasté.</div></div>`
-  },
-  "jeu-pdj":{
-    title:"Granola maison air fryer + yaourt grec",
-    ingredients:[{name:"Flocons d'avoine",base:60,unit:"g"},{name:"Miel brut",base:1,unit:"c.à.s."},{name:"Cannelle",base:1,unit:"c.à.c."},{name:"Noix concassées",base:20,unit:"g"},{name:"Graines de tournesol",base:10,unit:"g"},{name:"Yaourt grec",base:120,unit:"g"},{name:"Fruits rouges",base:80,unit:"g"}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Préparer le granola (batch dimanche)</div><span class="step-timing">⏱ 10 min</span></div><div class="step-desc">Mélangez flocons + miel + cannelle + noix + graines dans un bol. Étalez en couche fine dans le panier air fryer. 8 min à 160°C en remuant à mi-cuisson.</div><div class="step-tip">Laissez refroidir COMPLÈTEMENT avant de mettre en bocal — il croustille en refroidissant. Se conserve 2 semaines.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Assembler le bol</div><span class="step-timing">⏱ 2 min</span></div><div class="step-desc">Yaourt grec dans un bol, granola dessus, fruits rouges. Simple, rapide, délicieux.</div></div>`
-  },
-  "jeu-col1":{
-    title:"Oeuf dur + clémentine",
-    ingredients:[{name:"Oeuf dur",base:1,unit:""},{name:"Clémentine",base:1,unit:""}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Oeufs durs (batch dimanche)</div><span class="step-timing">⏱ 10 min</span></div><div class="step-desc">Portez à ébullition, plongez les oeufs. 10 min, puis eau froide immédiatement. Conservez non-écalés au frigo toute la semaine.</div><div class="step-tip">La vitamine C de la clémentine aide à absorber le fer de l'oeuf. Le duo parfait, partout, tout le temps.</div></div>`
-  },
-  "jeu-dej":{
-    title:"Salade lentilles, oeuf dur & vinaigrette moutarde",
-    ingredients:[{name:"Lentilles vertes cuites",base:150,unit:"g"},{name:"Oeuf dur",base:1,unit:""},{name:"Tomates cerises",base:80,unit:"g"},{name:"Échalote",base:1,unit:""},{name:"Persil frais",base:1,unit:"c.à.s."},{name:"Moutarde à l'ancienne",base:1,unit:"c.à.s."},{name:"Vinaigre de cidre",base:1,unit:"c.à.s."},{name:"Huile d'olive",base:2,unit:"c.à.s."}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Préparer la vinaigrette</div><span class="step-timing">⏱ 2 min</span></div><div class="step-desc">Émincez l'échalote finement. Fouettez moutarde + vinaigre + huile + sel + poivre. Ajoutez l'échalote.</div><div class="step-tip">La moutarde à l'ancienne émulsionne naturellement la vinaigrette — pas besoin de fouetter longtemps.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Assembler</div><span class="step-timing">⏱ 3 min</span></div><div class="step-desc">Mélangez lentilles + vinaigrette pendant qu'elles sont encore tièdes — elles absorbent mieux. Ajoutez tomates cerises + persil haché + oeuf dur tranché.</div><div class="step-tip">Cette salade tient 2 jours au frigo — préparez-en plus le mercredi soir.</div></div>`
-  },
-  "jeu-col2":{
-    title:"Houmous maison + galettes de riz",
-    ingredients:[{name:"Houmous maison",base:3,unit:"c.à.s."},{name:"Galettes de riz complet",base:2,unit:""}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Servir</div></div><div class="step-desc">Houmous du batch du dimanche dans un petit pot. Deux galettes de riz à part pour éviter qu'elles ramollissent.</div><div class="step-tip">Les galettes de riz complet remplacent le pain — moins denses, tout aussi satisfaisantes avec le houmous.</div></div>`
-  },
-  "jeu-din":{
-    title:"Poulet tikka masala maison & riz basmati",
-    ingredients:[{name:"Poulet (cubes)",base:150,unit:"g"},{name:"Yaourt grec",base:80,unit:"g"},{name:"Tomates concassées",base:200,unit:"g"},{name:"Oignon",base:1,unit:""},{name:"Ail",base:2,unit:"gousses"},{name:"Gingembre frais",base:1,unit:"c.à.s."},{name:"Garam masala",base:1.5,unit:"c.à.s."},{name:"Riz basmati",base:80,unit:"g"},{name:"Coriandre fraîche",base:1,unit:"c.à.s."}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Mariner le poulet</div><span class="step-timing">⏱ 30 min</span></div><div class="step-desc">Mélangez yaourt + garam masala + ail + gingembre + sel. Enrobez le poulet en cubes. Laissez mariner au moins 30 min (idéalement la veille).</div><div class="step-tip">La marinade au yaourt attendrit la viande — plus longtemps, plus le poulet sera fondant.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Cuire le poulet mariné</div><span class="step-timing">⏱ 5 min</span></div><div class="step-desc">Faites revenir le poulet mariné à feu vif 5 min pour le colorer. Ne bougez pas au début — laissez la croûte se former.</div></div><div class="step-block"><div class="step-header"><div class="step-num">3</div><div class="step-title">Finir la sauce</div><span class="step-timing">⏱ 20 min</span></div><div class="step-desc">Ajoutez oignon émincé + tomates concassées + épices. Mijoter 20 min à feu doux. La sauce doit s'épaissir et enrober le poulet.</div></div><div class="step-block"><div class="step-header"><div class="step-num">4</div><div class="step-title">Servir</div></div><div class="step-desc">Riz basmati cuit en absorption. Servez le tikka sur le riz avec la coriandre fraîche ciselée.</div></div>`
-  },
-  "ven-pdj":{
-    title:"Smoothie bowl banane-épinards-fruits rouges",
-    ingredients:[{name:"Banane congelée",base:1,unit:""},{name:"Épinards frais",base:30,unit:"g"},{name:"Lait d'amande",base:100,unit:"ml"},{name:"Framboises",base:80,unit:"g"},{name:"Graines de chia",base:1,unit:"c.à.s."},{name:"Granola maison",base:30,unit:"g"}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Mixer la base</div><span class="step-timing">⏱ 2 min</span></div><div class="step-desc">Mixez banane congelée + épinards + lait d'amande. La texture doit être ÉPAISSE — comme une glace. Ajoutez très peu de liquide.</div><div class="step-tip">La banane congelée donne une texture crémeuse naturelle. Les épinards ne se sentent pas mais boostent le fer.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Garnir</div><span class="step-timing">⏱ 1 min</span></div><div class="step-desc">Versez dans un bol. Disposez framboises + granola + graines de chia en rangées jolies. Mangez immédiatement.</div></div>`
-  },
-  "ven-col1":{
-    title:"Chocolat noir 85% + noix de cajou",
-    ingredients:[{name:"Chocolat noir 85%",base:2,unit:"carrés"},{name:"Noix de cajou",base:20,unit:"g"}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Votre récompense de fin de semaine</div></div><div class="step-desc">Vous avez tenu 4 jours sans distributeur. Cette collation vous récompense sans quitter le programme. Savourez lentement.</div><div class="step-tip">Les noix de cajou sont plus douces que les amandes — parfaites pour finir la semaine en douceur.</div></div>`
-  },
-  "ven-dej":{
-    title:"Boulettes de dinde air fryer & sauce tomate maison",
-    ingredients:[{name:"Dinde hachée",base:150,unit:"g"},{name:"Parmesan râpé",base:15,unit:"g"},{name:"Ail (gousse écrasée)",base:1,unit:""},{name:"Persil frais haché",base:1,unit:"c.à.s."},{name:"Origan séché",base:0.5,unit:"c.à.c."},{name:"Tomates concassées",base:200,unit:"g"},{name:"Oignon",base:0.5,unit:""},{name:"Basilic frais",base:6,unit:"feuilles"},{name:"Huile d'olive",base:1,unit:"c.à.s."},{name:"Courgette",base:1,unit:"moyenne"}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Préparer la farce</div><span class="step-timing">⏱ 3 min</span></div><div class="step-desc">Mélangez dinde + parmesan + ail + persil + origan + sel + poivre. Travaillez à la main 1 minute — plus vous pétrissez, plus les boulettes seront moelleuses.</div><div class="step-tip">Humidifiez légèrement vos mains si ça colle trop.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Former et réfrigérer</div><span class="step-timing">⏱ 10 min</span></div><div class="step-desc">Formez 4-5 boulettes taille balle de golf. 10 min au frigo — essentiel pour qu'elles tiennent à la cuisson.</div></div><div class="step-block"><div class="step-header"><div class="step-num">3</div><div class="step-title">Cuire à l'air fryer</div><span class="step-timing">⏱ 12 min</span></div><div class="step-desc">Air fryer 200°C, 12 min en retournant à mi-cuisson. Bien dorées, plus de rose à coeur.</div><div class="step-tip">Pour vérifier : coupez une boulette — blanche et juteuse à l'intérieur, jamais sèche.</div></div><div class="step-block"><div class="step-header"><div class="step-num">4</div><div class="step-title">Sauce tomate maison</div><span class="step-timing">⏱ 12 min</span></div><div class="step-desc">Faites revenir oignon + ail dans l'huile 3 min. Ajoutez tomates + sel + poivre. Mijoter 10 min. Hors du feu, ajoutez basilic ciselé.</div></div><div class="step-block"><div class="step-header"><div class="step-num">5</div><div class="step-title">Emballer pour le lendemain</div><span class="step-timing">⏱ 2 min</span></div><div class="step-desc">Courgettes sautées en base, boulettes dessus, sauce nappée. Ne séparez jamais sauce et boulettes — elles sèchent au micro-ondes.</div></div>`
-  },
-  "ven-col2":{
-    title:"Fromage blanc + miel + myrtilles",
-    ingredients:[{name:"Fromage blanc 0%",base:150,unit:"g"},{name:"Miel brut",base:1,unit:"c.à.c."},{name:"Myrtilles",base:60,unit:"g"}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Assembler</div></div><div class="step-desc">Fromage blanc + miel en spirale + myrtilles. La collation légère du vendredi pour arriver au dîner sans être affamée.</div></div>`
-  },
-  "ven-din":{
-    title:"Oeufs cocotte épinards-crème légère",
-    ingredients:[{name:"Oeufs",base:2,unit:""},{name:"Épinards frais",base:100,unit:"g"},{name:"Crème légère",base:2,unit:"c.à.s."},{name:"Gruyère râpé",base:15,unit:"g"},{name:"Muscade",base:1,unit:"pincée"}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Préchauffer et préparer</div><span class="step-timing">⏱ 5 min</span></div><div class="step-desc">Préchauffez le four à 180°C. Faites tomber les épinards 2 min à la poêle avec un filet d'huile et une pincée de sel.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Monter les ramequins</div><span class="step-timing">⏱ 3 min</span></div><div class="step-desc">Beurrez légèrement 2 ramequins. Répartissez les épinards. Ajoutez 1 c.à.s. crème + muscade dans chaque. Cassez 1 oeuf par ramequin. Parsemez de gruyère.</div><div class="step-tip">Pour un jaune coulant : 12 min. Pour un jaune pris : 15 min. Chaque four est différent.</div></div><div class="step-block"><div class="step-header"><div class="step-num">3</div><div class="step-title">Enfourner</div><span class="step-timing">⏱ 13 min</span></div><div class="step-desc">Enfournez 12-15 min selon votre préférence de cuisson. Servez immédiatement avec une tranche de pain complet.</div></div>`
-  },
-  "sam-pdj":{
-    title:"French toast pain complet air fryer",
-    ingredients:[{name:"Pain complet",base:2,unit:"tranches"},{name:"Oeufs",base:2,unit:""},{name:"Lait",base:50,unit:"ml"},{name:"Cannelle",base:0.5,unit:"c.à.c."},{name:"Extrait de vanille",base:0.5,unit:"c.à.c."},{name:"Fraises fraîches",base:100,unit:"g"},{name:"Sirop d'érable pur",base:1,unit:"c.à.c."}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Préparer l'appareil</div><span class="step-timing">⏱ 2 min</span></div><div class="step-desc">Battez ensemble oeufs + lait + cannelle + vanille dans un plat creux.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Tremper le pain</div><span class="step-timing">⏱ 2 min</span></div><div class="step-desc">Trempez chaque tranche 1 min de chaque côté. Le pain doit être imbibé mais pas détrempé.</div><div class="step-tip">Le pain rassis de la veille est idéal — il absorbe mieux sans se défaire.</div></div><div class="step-block"><div class="step-header"><div class="step-num">3</div><div class="step-title">Air fryer</div><span class="step-timing">⏱ 8 min</span></div><div class="step-desc">Air fryer 180°C, 8 min en retournant à 4 min. Doré et légèrement croustillant dehors, moelleux dedans.</div></div><div class="step-block"><div class="step-header"><div class="step-num">4</div><div class="step-title">Dresser</div></div><div class="step-desc">Fraises coupées en quartiers + filet de sirop d'érable pur. Le brunch du samedi matin — 100% propre et délicieux.</div></div>`
-  },
-  "sam-col1":{title:"Yaourt grec + fruits de saison",ingredients:[{name:"Yaourt grec",base:150,unit:"g"},{name:"Miel brut",base:1,unit:"c.à.c."},{name:"Fruits de saison",base:100,unit:"g"}],steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Prendre le temps</div></div><div class="step-desc">Assemblez yaourt + fruits + miel. Mangez assis, sans écran, en savourant. Le week-end c'est aussi ça.</div></div>`},
-  "sam-dej":{title:"Salade composée du frigo",ingredients:[{name:"Restes de la semaine",base:1,unit:"portion"}],steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Ouvrez le frigo et assemblez</div></div><div class="step-desc">Lentilles, légumes, oeuf dur, herbes fraîches — tout ce qui reste. Vinaigrette maison + herbes fraîches transforment n'importe quoi en repas savoureux.</div><div class="step-tip">C'est souvent le meilleur repas de la semaine — pas de recette, juste votre instinct et zéro gaspillage.</div></div>`},
-  "sam-col2":{title:"Pomme + amandes",ingredients:[{name:"Pomme",base:1,unit:""},{name:"Amandes",base:20,unit:"g"}],steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Classique indémodable</div></div><div class="step-desc">La pomme tient ses promesses depuis le début de la semaine. Simple, efficace, toujours là.</div></div>`},
-  "sam-din":{
-    title:"Boeuf bourguignon allégé & pommes de terre vapeur",
-    ingredients:[{name:"Boeuf à braiser",base:200,unit:"g"},{name:"Vin rouge",base:150,unit:"ml"},{name:"Champignons",base:100,unit:"g"},{name:"Carottes",base:2,unit:""},{name:"Oignons",base:2,unit:""},{name:"Ail",base:3,unit:"gousses"},{name:"Bouillon maison",base:300,unit:"ml"},{name:"Thym, laurier",base:1,unit:"bouquet"},{name:"Pommes de terre",base:200,unit:"g"}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Saisir la viande</div><span class="step-timing">⏱ 8 min</span></div><div class="step-desc">Coupez le boeuf en cubes de 4 cm. Faites-les dorer à feu vif dans un filet d'huile sur toutes les faces. Ne remplissez pas trop la cocotte — la viande doit dorer, pas bouillir.</div><div class="step-tip">Cette étape est clé — la croûte dorée donne toute la saveur à la sauce.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Ajouter les légumes</div><span class="step-timing">⏱ 5 min</span></div><div class="step-desc">Réservez la viande. Dans la même cocotte : oignons + ail + carottes 5 min. Remettez la viande.</div></div><div class="step-block"><div class="step-header"><div class="step-num">3</div><div class="step-title">Mijoter</div><span class="step-timing">⏱ 2h</span></div><div class="step-desc">Versez vin + bouillon + thym + laurier. Portez à ébullition puis feu très doux, couvert, 2 heures. Ajoutez champignons les 30 dernières minutes.</div><div class="step-tip">La patience est l'ingrédient secret du bourguignon. Deux heures minimum pour que le collagène fonde et rende la viande fondante.</div></div><div class="step-block"><div class="step-header"><div class="step-num">4</div><div class="step-title">Pommes de terre vapeur</div><span class="step-timing">⏱ 20 min</span></div><div class="step-desc">Cuisez les pommes de terre à la vapeur les 20 dernières minutes. Servez le bourguignon avec son jus réduit.</div></div>`
-  },
-  "dim-pdj":{
-    title:"Brunch — oeufs brouillés & légumes sautés",
-    ingredients:[{name:"Oeufs",base:3,unit:""},{name:"Champignons",base:80,unit:"g"},{name:"Tomates cerises",base:60,unit:"g"},{name:"Épinards",base:50,unit:"g"},{name:"Huile d'olive",base:1,unit:"c.à.s."},{name:"Pain complet",base:1,unit:"tranche"}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Sauter les légumes</div><span class="step-timing">⏱ 5 min</span></div><div class="step-desc">Faites sauter champignons + tomates + épinards dans l'huile d'olive à feu moyen-vif. Assaisonnez.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Oeufs brouillés parfaits</div><span class="step-timing">⏱ 5 min</span></div><div class="step-desc">À PART, battez les oeufs avec sel et poivre. Poêle à feu TRÈS DOUX avec une noix de beurre. Remuez lentement en formant de grands S. Retirez du feu quand encore légèrement baveux — ils finissent de cuire hors du feu.</div><div class="step-tip">La patience fait les meilleurs oeufs brouillés. Feu doux = crémeux et moelleux. Feu vif = caoutchouteux.</div></div><div class="step-block"><div class="step-header"><div class="step-num">3</div><div class="step-title">Dresser</div></div><div class="step-desc">Pain complet toasté + légumes + oeufs brouillés. Le dimanche ça se mérite.</div></div>`
-  },
-  "dim-col1":{title:"Smoothie fruits rouges-banane",ingredients:[{name:"Banane",base:1,unit:""},{name:"Fruits rouges",base:100,unit:"g"},{name:"Lait d'amande",base:150,unit:"ml"},{name:"Graines de chia",base:1,unit:"c.à.s."}],steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Mixer</div><span class="step-timing">⏱ 2 min</span></div><div class="step-desc">Mixez tout ensemble. Buvez en préparant votre batch cooking. Efficace.</div></div>`},
-  "dim-dej":{
-    title:"Quiche sans pâte poireaux-saumon",
-    ingredients:[{name:"Oeufs",base:4,unit:""},{name:"Crème légère",base:200,unit:"ml"},{name:"Poireaux",base:2,unit:""},{name:"Saumon fumé",base:100,unit:"g"},{name:"Muscade",base:1,unit:"pincée"},{name:"Gruyère râpé",base:20,unit:"g"}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Préparer les poireaux</div><span class="step-timing">⏱ 10 min</span></div><div class="step-desc">Émincez les poireaux en rondelles. Faites-les fondre à la poêle avec un filet d'huile, sel, feu moyen-doux, 10 min. Ils doivent être tendres et légèrement dorés.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Préparer l'appareil</div><span class="step-timing">⏱ 3 min</span></div><div class="step-desc">Battez oeufs + crème + sel + muscade. Ajoutez poireaux + saumon en morceaux. Mélangez.</div></div><div class="step-block"><div class="step-header"><div class="step-num">3</div><div class="step-title">Enfourner</div><span class="step-timing">⏱ 30 min</span></div><div class="step-desc">Versez dans un moule huilé, parsemez de gruyère. Four 180°C, 30 min. La quiche doit être dorée et ne plus trembler au centre.</div><div class="step-tip">Sans pâte = moins de calories, plus de protéines. Se mange froide aussi bien que chaude — parfaite pour le batch.</div></div>`
-  },
-  "dim-batch":{title:"Batch cooking — 1h30",ingredients:[],steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Organisation</div></div><div class="step-desc">Mettez de la musique et organisez votre cuisine. En parallèle : 1) Houmous au mixeur, 2) Lentilles sur le feu, 3) Granola à l'air fryer, 4) Oeufs durs, 5) Pain au four.</div><div class="step-tip">1h30 le dimanche = 5 jours sans stress. C'est le meilleur investissement de la semaine.</div></div>`},
-  "dim-din":{
-    title:"Soupe légère poireaux-pomme de terre",
-    ingredients:[{name:"Poireaux",base:2,unit:""},{name:"Pomme de terre",base:200,unit:"g"},{name:"Oignon",base:1,unit:""},{name:"Bouillon maison",base:600,unit:"ml"},{name:"Crème légère",base:2,unit:"c.à.s."},{name:"Ciboulette",base:1,unit:"c.à.s."}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Faire revenir</div><span class="step-timing">⏱ 5 min</span></div><div class="step-desc">Faites revenir poireaux émincés + oignon dans un filet d'huile 5 min à feu moyen.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Cuire</div><span class="step-timing">⏱ 20 min</span></div><div class="step-desc">Ajoutez pomme de terre en cubes + bouillon. Cuisez 20 min à feu moyen jusqu'à ce que les pommes de terre soient tendres.</div></div><div class="step-block"><div class="step-header"><div class="step-num">3</div><div class="step-title">Finaliser</div><span class="step-timing">⏱ 2 min</span></div><div class="step-desc">Mixez partiellement (gardez des morceaux). Ajoutez crème + ciboulette. Léger, réconfortant, parfait avant la semaine qui recommence.</div></div>`
-  }
-};;
-
-// Données simplifiées semaine 1
-const DAYS_DATA={
-"Lundi":[
-  {id:"lun-pdj",type:"pdj",label:"Petit-déjeuner",name:"Toasts avocat & oeufs cocotte air fryer",desc:"2 tranches pain complet, 2 oeufs, ½ avocat, piment doux — 12 min à 160°C",kcal:380,p:22,g:30,l:18,af:true},
-  {id:"lun-col1",type:"col",label:"Collation matin",name:"Yaourt grec + noix",desc:"150g yaourt grec nature, 20g noix. À préparer la veille dans un pot hermétique.",kcal:180,p:12,g:6,l:11},
-  {id:"lun-dej",type:"dej",label:"Déjeuner",name:"Poulet citron-herbes & patate douce rôtie",desc:"150g blanc de poulet, 200g patate douce, huile d'olive, romarin, thym",kcal:430,p:38,g:42,l:10,transport:"Micro-ondes"},
-  {id:"lun-col2",type:"col",label:"Collation après-midi",name:"Pomme + purée d'amande",desc:"1 pomme + 1 c.à.s. purée d'amande (20g). Votre remplaçant du distributeur.",kcal:155,p:4,g:22,l:6},
-  {id:"lun-din",type:"din",label:"Dîner",name:"Curry de pois chiches, épinards & lait de coco",desc:"200g pois chiches, 100g épinards, 100ml lait de coco, tomates, curry — 20 min",kcal:400,p:16,g:50,l:12}
-],
-"Mardi":[
-  {id:"mar-pdj",type:"pdj",label:"Petit-déjeuner",name:"Porridge avoine-banane-cannelle",desc:"60g flocons d'avoine, 1 banane, 200ml lait, cannelle, 1 c.à.c. miel brut",kcal:360,p:12,g:62,l:6},
-  {id:"mar-col1",type:"col",label:"Collation matin",name:"Chocolat noir 85% + orange",desc:"2 carrés chocolat noir 85% + 1 orange.",kcal:130,p:2,g:20,l:5},
-  {id:"mar-dej",type:"dej",label:"Déjeuner",name:"Salade pâtes complètes & feta air fryer",desc:"80g pâtes complètes, 80g feta (8min/200°C), courgette, poivron, olives, basilic",kcal:450,p:18,g:48,l:18,af:true,transport:"Froid"},
-  {id:"mar-col2",type:"col",label:"Collation après-midi",name:"Houmous maison + légumes",desc:"3 c.à.s. houmous maison + bâtonnets carottes & concombre.",kcal:150,p:6,g:16,l:7},
-  {id:"mar-din",type:"din",label:"Dîner",name:"Hachis parmentier allégé patate douce",desc:"150g steak haché 5%, purée patate douce, gruyère — gratiné four",kcal:450,p:36,g:40,l:14}
-],
-"Mercredi":[
-  {id:"mer-pdj",type:"pdj",label:"Petit-déjeuner",name:"Pancakes protéinés avoine-banane",desc:"1 banane, 2 oeufs, 40g flocons d'avoine mixés, cannelle",kcal:350,p:16,g:46,l:9},
-  {id:"mer-col1",type:"col",label:"Collation matin",name:"Fromage blanc + miel + graines de courge",desc:"150g fromage blanc 0%, 1 c.à.c. miel brut, graines de courge",kcal:140,p:14,g:12,l:3},
-  {id:"mer-dej",type:"dej",label:"Déjeuner",name:"Saumon air fryer, riz basmati & brocoli",desc:"150g saumon (10min/180°C), 80g riz basmati, 150g brocoli, sauce soja-citron-gingembre",kcal:480,p:40,g:42,l:16,af:true,transport:"Micro-ondes"},
-  {id:"mer-col2",type:"col",label:"Collation après-midi",name:"Amandes + poire",desc:"25g amandes + 1 poire",kcal:175,p:5,g:22,l:9},
-  {id:"mer-din",type:"din",label:"Dîner",name:"Soupe veloutée courge-lentilles corail",desc:"300g courge butternut, 60g lentilles corail, bouillon maison, cumin, gingembre",kcal:410,p:18,g:62,l:8}
-],
-"Jeudi":[
-  {id:"jeu-pdj",type:"pdj",label:"Petit-déjeuner",name:"Granola maison air fryer + yaourt grec",desc:"60g flocons, miel, noix — 8min/160°C. Avec 120g yaourt grec + fruits rouges.",kcal:370,p:14,g:48,l:13,af:true},
-  {id:"jeu-col1",type:"col",label:"Collation matin",name:"Oeuf dur + clémentine",desc:"1 oeuf dur (préparez-en 3 le dimanche) + 1 clémentine",kcal:110,p:8,g:10,l:5},
-  {id:"jeu-dej",type:"dej",label:"Déjeuner",name:"Salade lentilles, oeuf dur & vinaigrette moutarde",desc:"150g lentilles cuites, 1 oeuf dur, tomates cerises, moutarde à l'ancienne",kcal:390,p:24,g:42,l:12,transport:"Froid"},
-  {id:"jeu-col2",type:"col",label:"Collation après-midi",name:"Houmous maison + galettes de riz",desc:"3 c.à.s. houmous + 2 galettes de riz complet",kcal:160,p:5,g:20,l:6},
-  {id:"jeu-din",type:"din",label:"Dîner",name:"Poulet tikka masala maison & riz basmati",desc:"150g poulet, tomates, yaourt grec, garam masala, gingembre, ail — sauce maison",kcal:520,p:42,g:48,l:14}
-],
-"Vendredi":[
-  {id:"ven-pdj",type:"pdj",label:"Petit-déjeuner",name:"Smoothie bowl banane-épinards-fruits rouges",desc:"1 banane congelée, épinards, lait d'amande, framboises, graines chia, granola maison",kcal:340,p:10,g:56,l:8},
-  {id:"ven-col1",type:"col",label:"Collation matin",name:"Chocolat noir 85% + noix de cajou",desc:"2 carrés chocolat noir 85% + 20g noix de cajou",kcal:160,p:4,g:10,l:11},
-  {id:"ven-dej",type:"dej",label:"Déjeuner",name:"Boulettes de dinde air fryer & sauce tomate maison",desc:"150g dinde hachée, parmesan, herbes — 12min/200°C. Sauce tomate-basilic, courgettes.",kcal:420,p:40,g:20,l:18,af:true,transport:"Micro-ondes"},
-  {id:"ven-col2",type:"col",label:"Collation après-midi",name:"Fromage blanc + miel + myrtilles",desc:"150g fromage blanc 0%, 1 c.à.c. miel brut, myrtilles fraîches",kcal:130,p:13,g:16,l:1},
-  {id:"ven-din",type:"din",label:"Dîner",name:"Oeufs cocotte épinards-crème légère",desc:"2 oeufs, 100g épinards, 2 c.à.s. crème légère, gruyère, muscade — ramequins four 15min",kcal:295,p:20,g:8,l:18}
-],
-"Samedi":[
-  {id:"sam-pdj",type:"pdj",label:"Petit-déjeuner",name:"French toast pain complet air fryer",desc:"2 tranches pain trempées dans oeuf+cannelle+lait, 8min/180°C. Fraises, sirop d'érable.",kcal:380,p:16,g:48,l:12,af:true},
-  {id:"sam-col1",type:"col",label:"Collation matin",name:"Yaourt grec + fruits de saison",desc:"150g yaourt grec, 1 c.à.c. miel brut, fruits de saison",kcal:150,p:10,g:18,l:4},
-  {id:"sam-dej",type:"dej",label:"Déjeuner",name:"Salade composée du frigo (zéro gaspillage)",desc:"Terminez les restes de la semaine — lentilles, légumes, oeuf dur, herbes.",kcal:350,p:20,g:35,l:12},
-  {id:"sam-col2",type:"col",label:"Collation après-midi",name:"Pomme + amandes",desc:"1 pomme + 20g amandes",kcal:150,p:4,g:18,l:8},
-  {id:"sam-din",type:"din",label:"Dîner",name:"Boeuf bourguignon allégé & pommes de terre vapeur",desc:"200g boeuf à braiser, vin rouge, champignons, carottes, oignons — mijotage 2h.",kcal:490,p:38,g:28,l:16}
-],
-"Dimanche":[
-  {id:"dim-pdj",type:"pdj",label:"Petit-déjeuner",name:"Brunch — oeufs brouillés & légumes sautés",desc:"3 oeufs brouillés, champignons, tomates, épinards sautés à l'huile d'olive",kcal:400,p:24,g:30,l:18},
-  {id:"dim-col1",type:"col",label:"Collation matin",name:"Smoothie fruits rouges-banane",desc:"Banane, fruits rouges, lait d'amande, graines de chia",kcal:200,p:5,g:38,l:4},
-  {id:"dim-dej",type:"dej",label:"Déjeuner",name:"Quiche sans pâte poireaux-saumon",desc:"Oeufs, crème légère, poireaux fondus, saumon — cuite au four",kcal:380,p:32,g:14,l:22},
-  {id:"dim-batch",type:"col",label:"Batch cooking",name:"Séance batch cooking — 1h30",desc:"Houmous · granola air fryer · lentilles · oeufs durs · pain complet · soupe",kcal:0,p:0,g:0,l:0},
-  {id:"dim-din",type:"din",label:"Dîner",name:"Soupe légère poireaux-pomme de terre",desc:"Poireaux, pomme de terre, bouillon maison, crème légère, ciboulette",kcal:280,p:8,g:42,l:8}
-]};
+// Weeks metadata (titles, availability) — les données réelles sont dans week-XX.html
+const WEEKS_META = {
+  1: { title:"Semaine 1", subtitle:"Lancer en douceur", available:true },
+  2: { title:"Semaine 2", subtitle:"Prendre le rythme", available:false },
+  3: { title:"Semaine 3", subtitle:"Confirmer les habitudes", available:false },
+  4: { title:"Semaine 4", subtitle:"Accélérer", available:false },
+  5: { title:"Semaine 5", available:false },
+  6: { title:"Semaine 6", available:false },
+  7: { title:"Semaine 7", available:false },
+  8: { title:"Semaine 8", available:false },
+  9: { title:"Semaine 9", available:false },
+  10:{ title:"Semaine 10", available:false },
+  11:{ title:"Semaine 11", available:false },
+  12:{ title:"Semaine 12", subtitle:"La ligne d'arrivée", available:false },
+};
 
 // ── CALORIE CALC ─────────────────────────────────────────────────────────────
 function calcBMR(poids,taille,age,genre){
@@ -907,32 +736,45 @@ function renderEventsList(){
 function renderProg(){
   const list=document.getElementById('weeks-list');list.innerHTML='';
   for(let w=1;w<=12;w++){
-    const avail=w===1;const done=false;
+    const meta=WEEKS_META[w]||{};
+    const avail=meta.available||false;
+    const done=completedWeeks.includes(w);
     const div=document.createElement('div');div.className='week-row glass-card';
     const dates = getWeekDates(w);
     const dateStr = dates ? `${dates.start} → ${dates.end}` : (avail ? '1 550 kcal · 7 jours · Air fryer inclus' : 'Disponible prochainement');
-    const wkCyclePhase = dates && getCyclePhase() ? checkWeekCycle(dates.startD, dates.endD) : null;
-    div.innerHTML=`<div class="wk-badge ${done?'wk-done':avail?'wk-active':'wk-locked'}">${w}</div><div class="wk-info"><div class="wk-title">Semaine ${w}${avail?' — Lancer en douceur':''}</div><div class="wk-sub">${dateStr}</div>${wkCyclePhase?`<div style="font-size:10px;font-weight:700;margin-top:3px;color:${wkCyclePhase==='regles'?'var(--rose)':'var(--peach)'}">${wkCyclePhase==='regles'?'🩷 Semaine règles':'✨ Semaine ovulation'}</div>`:''}</div><span class="wk-pill ${done?'pill-done':avail?'pill-active':'pill-locked'}">${done?'✓ Terminée':avail?'En cours':'À venir'}</span>`;
+    const wkCyclePhase = dates ? checkWeekCycle(dates.startD, dates.endD) : null;
+    const subtitle = meta.subtitle ? ` — ${meta.subtitle}` : '';
+    div.innerHTML=`<div class="wk-badge ${done?'wk-done':avail?'wk-active':'wk-locked'}">${w}</div><div class="wk-info"><div class="wk-title">Semaine ${w}${subtitle}</div><div class="wk-sub">${dateStr}</div>${wkCyclePhase?`<div style="font-size:10px;font-weight:700;margin-top:3px;color:${wkCyclePhase==='regles'?'var(--rose)':'var(--peach)'}">${wkCyclePhase==='regles'?'🩷 Semaine règles':'✨ Semaine ovulation'}</div>`:''}</div><span class="wk-pill ${done?'pill-done':avail?'pill-active':'pill-locked'}">${done?'✓ Terminée':avail?'En cours':'À venir'}</span>`;
     if(avail)div.onclick=()=>openWeek(w);
     list.appendChild(div);
   }
 }
 
 // ── WEEK OVERLAY ─────────────────────────────────────────────────────────────
+let currentWeekData = null;
+
 function openWeek(w){
   currentWeek=w;currentDay='Lundi';
+  currentWeekData=null;
   const dates = getWeekDates(w);
   const dateStr = dates ? ` · ${dates.start} → ${dates.end}` : '';
   document.getElementById('week-screen-title').textContent='Semaine '+w+dateStr;
-  // Check cycle
-  if(dates) {
-    const phase = checkWeekCycle(dates.startD, dates.endD);
-    if(phase) setTimeout(()=>openCycleAlert(phase), 500);
-  }
   document.getElementById('week-screen').classList.add('open');
   document.getElementById('courses-section').style.display='none';
   document.getElementById('meals-bubbles').style.display='flex';
-  renderDayPills();renderMealBubbles();updateWeekCheckCount();
+  // Show loading state
+  document.getElementById('meals-bubbles').innerHTML='<div style="padding:32px;text-align:center"><div style="font-size:32px;margin-bottom:12px">🌸</div><div style="font-size:14px;color:var(--text-soft);font-weight:600">Chargement de la semaine...</div></div>';
+  document.getElementById('days-scroll').innerHTML='';
+  // Load week data from week-XX.html
+  loadWeek(w, (data) => {
+    if(!data){ document.getElementById('meals-bubbles').innerHTML="<div class=\"empty-state\"><div class=\"empty-icon\">😔</div><div class=\"empty-title\">Semaine non disponible</div><div class=\"empty-sub\">Disponible prochainement.</div></div>"; return; }
+    currentWeekData=data;
+    renderDayPills();renderMealBubbles();updateWeekCheckCount();
+    if(dates) {
+      const phase = checkWeekCycle(dates.startD, dates.endD);
+      if(phase) setTimeout(()=>openCycleAlert(phase), 500);
+    }
+  });
 }
 function closeWeek(){document.getElementById('week-screen').classList.remove('open');}
 function renderDayPills(){
@@ -940,7 +782,7 @@ function renderDayPills(){
   const cp=document.createElement('div');cp.className='day-pill courses-pill';cp.textContent='🛒 Courses';cp.onclick=toggleCourses;s.appendChild(cp);
   DAYS_ORDER.forEach(day=>{
     const key=`w${currentWeek}-${day}`;const checks=mealChecks[key]||[];
-    const total=(DAYS_DATA[day]||[]).filter(m=>m.kcal>0).length;
+    const total=((currentWeekData&&currentWeekData.days&&currentWeekData.days[day])||[]).filter(m=>m.kcal>0).length;
     const allDone=total>0&&checks.length>=total;
     const p=document.createElement('div');
     p.className='day-pill'+(day===currentDay?' active':'')+(allDone?' done-day':'');
@@ -958,7 +800,7 @@ function selectDay(day){currentDay=day;showingCourses=false;document.getElementB
 function renderCourses(){
   const sec=document.getElementById('courses-section');
   let html='<div class="courses-wrap">';
-  Object.entries(W1_COURSES).forEach(([cat,items])=>{
+  Object.entries(currentWeekData.courses).forEach(([cat,items])=>{
     html+=`<div class="courses-cat-title">${cat}</div>`;
     items.forEach((item,i)=>{const key=`w1-course-${cat}-${i}`;const checked=courseChecks[key]||false;html+=`<div class="course-row"><div class="course-chk${checked?' checked':''}" onclick="toggleCourse('${key}',this)">${checked?'✓':''}</div><span class="course-label" style="${checked?'text-decoration:line-through;color:var(--text-soft)':''}">${item.l}</span><span class="course-qty">${item.q}</span></div>`;});
   });
@@ -967,7 +809,7 @@ function renderCourses(){
 function toggleCourse(key,el){const c=!(courseChecks[key]||false);courseChecks[key]=c;sS('courseChecks',courseChecks);el.className='course-chk'+(c?' checked':'');el.textContent=c?'✓':'';const lbl=el.nextElementSibling;lbl.style.textDecoration=c?'line-through':'';lbl.style.color=c?'var(--text-soft)':'';}
 
 function renderMealBubbles(){
-  const meals=DAYS_DATA[currentDay]||[];const list=document.getElementById('meals-bubbles');
+  const meals=(currentWeekData&&currentWeekData.days&&currentWeekData.days[currentDay])||[];const list=document.getElementById('meals-bubbles');
   if(!meals.length){list.innerHTML='<div class="empty-state"><div class="empty-icon">🍽️</div><div class="empty-title">Jour non disponible</div></div>';return;}
   const key=`w${currentWeek}-${currentDay}`;const checks=mealChecks[key]||[];
   list.innerHTML=meals.map((meal,i)=>{
@@ -989,11 +831,11 @@ function renderMealBubbles(){
 
 // ── RECIPE MODAL ─────────────────────────────────────────────────────────────
 function openRecipe(mealId){
-  const meals=DAYS_DATA[currentDay]||[];
+  const meals=(currentWeekData&&currentWeekData.days&&currentWeekData.days[currentDay])||[];
   const meal=meals.find(m=>m.id===mealId);
   if(!meal)return;
   currentMeal=meal;currentPortion=1;selectedCompanionsForRecipe=[];
-  const recipe=RECIPES[mealId];
+  const recipe=currentWeekData&&currentWeekData.recipes&&currentWeekData.recipes[mealId];
   document.getElementById('rm-type').textContent=meal.label+(meal.af?' · 🔥 Air fryer':'');
   document.getElementById('rm-title').textContent=meal.name;
   document.getElementById('rm-desc').textContent=recipe?'':meal.desc;
@@ -1063,20 +905,20 @@ function toggleRecipeCmp(i){
   const idx=selectedCompanionsForRecipe.indexOf(i);
   if(idx>=0)selectedCompanionsForRecipe.splice(idx,1);else selectedCompanionsForRecipe.push(i);
   renderRecipeCompanions();
-  const recipe=RECIPES[currentMeal?.id];
+  const recipe=currentWeekData&&currentWeekData.recipes&&currentWeekData.recipes[currentMeal?.id];
   document.getElementById('rm-body').innerHTML=recipe?buildRecipeBody(recipe,currentPortion):buildSimpleBody(currentMeal);
 }
 
 function changePortion(delta){
   currentPortion=Math.max(1,Math.min(6,currentPortion+delta));
   document.getElementById('portion-count').textContent=currentPortion;
-  const recipe=RECIPES[currentMeal?.id];
+  const recipe=currentWeekData&&currentWeekData.recipes&&currentWeekData.recipes[currentMeal?.id];
   document.getElementById('rm-body').innerHTML=recipe?buildRecipeBody(recipe,currentPortion):buildSimpleBody(currentMeal);
 }
 
 function shareRecipe(){
   if(!currentMeal)return;
-  const recipe=RECIPES[currentMeal.id];
+  const recipe=currentWeekData&&currentWeekData.recipes&&currentWeekData.recipes[currentMeal.id];
   const cmpNames=selectedCompanionsForRecipe.map(i=>companions[i].name).join(', ');
   let txt=`🌸 ${currentMeal.name}\n\n`;
   if(currentMeal.kcal>0)txt+=`📊 ${currentMeal.kcal} kcal · Protéines ${currentMeal.p}g · Glucides ${currentMeal.g}g · Lipides ${currentMeal.l}g\n\n`;
@@ -1105,7 +947,7 @@ function toggleMealCheck(i){
 function updateWeekCheckCount(){
   let total=0,done=0;
   DAYS_ORDER.forEach(day=>{
-    (DAYS_DATA[day]||[]).forEach((m,i)=>{if(m.kcal>0){total++;if((mealChecks[`w${currentWeek}-${day}`]||[]).includes(i))done++;}});
+    ((currentWeekData&&currentWeekData.days&&currentWeekData.days[day])||[]).forEach((m,i)=>{if(m.kcal>0){total++;if((mealChecks[`w${currentWeek}-${day}`]||[]).includes(i))done++;}});
   });
   document.getElementById('week-check-count').textContent=done+'/'+total;
 }
@@ -1325,11 +1167,11 @@ const IMPACT_CHOICES = [
 ];
 
 const IMPACT_TIPS = {
-  pdj: {text:"Pour un petit-déj en dehors du programme : optez pour des oeufs brouillés, un yaourt grec + fruits, ou des flocons d’avoine. Évitez les viennoiseries — préférez une tartine pain complet + avocat."},
-  col: {text:"Pour les collations hors programme : chocolat noir 85%, une poignée d’amandes, ou un fruit. Chez des amis, une part de fromage + quelques noix est un choix avisé."},
-  dej: {text:"Au resto ou chez des amis : privilégiez grillades ou poissons avec légumes, évitez les sauces. Si c’est un repas de fête, savourez sans culpabilité — compensez le soir avec une soupe légère."},
-  din: {text:"Dîner hors programme : misez sur des protéines maigres + légumes. Si le repas est après 21h, gardez une portion réduite. Un verre de vin c’est ok, deux c’est la limite."},
-  all: {text:"Journée événement : accordez-vous ce plaisir pleinement ! Avant, mangez un petit-déj protéiné. Après, reprenez le programme normalement le lendemain — une journée n’efface pas une semaine de travail."},
+  pdj: {text:"Pour un petit-déj en dehors du programme : optez pour des oeufs brouillés, un yaourt grec + fruits, ou des flocons d'avoine. Évitez les viennoiseries — préférez une tartine pain complet + avocat."},
+  col: {text:"Pour les collations hors programme : chocolat noir 85%, une poignée d'amandes, ou un fruit. Chez des amis, une part de fromage + quelques noix est un choix avisé."},
+  dej: {text:"Au resto ou chez des amis : privilégiez grillades ou poissons avec légumes, évitez les sauces. Si c'est un repas de fête, savourez sans culpabilité — compensez le soir avec une soupe légère."},
+  din: {text:"Dîner hors programme : misez sur des protéines maigres + légumes. Si le repas est après 21h, gardez une portion réduite. Un verre de vin c'est ok, deux c'est la limite."},
+  all: {text:"Journée événement : accordez-vous ce plaisir pleinement ! Avant, mangez un petit-déj protéiné. Après, reprenez le programme normalement le lendemain — une journée n'efface pas une semaine de travail."},
 };
 
 function addEvent() {
