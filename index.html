@@ -533,39 +533,35 @@ let events=gS('calEvents',[]);
 let startDate=gS('startDate',null);
 
 // ── WEEK LOADER ─────────────────────────────────────────────────────────────
-// Les données de chaque semaine sont dans week-XX.js
-// Chargement via injection de balise <script> — compatible Vercel, zéro CORS
+// Chargement via fetch() + eval — même origine Vercel, zéro CORS
 
 let loadedWeeks = {};
-window._weekLoadCallbacks = {};
 
 function loadWeek(weekNum, callback) {
-  // Already cached
   if (loadedWeeks[weekNum]) { callback(loadedWeeks[weekNum]); return; }
-  // Already loading — queue callback
-  if (window._weekLoadCallbacks[weekNum]) {
-    const prev = window._weekLoadCallbacks[weekNum];
-    window._weekLoadCallbacks[weekNum] = (data) => { prev(data); callback(data); };
-    return;
-  }
-  // Check if already loaded in window (script already ran)
-  const cached = window['WEEK_DATA_' + weekNum];
-  if (cached) { loadedWeeks[weekNum] = cached; callback(cached); return; }
-  // Inject script tag
-  window._weekLoadCallbacks[weekNum] = (data) => {
-    loadedWeeks[weekNum] = data;
-    callback(data);
-  };
   const filename = 'week-' + String(weekNum).padStart(2,'0') + '.js';
-  const script = document.createElement('script');
-  script.src = filename + '?v=' + Date.now(); // cache-bust
-  script.onerror = () => {
-    console.error('Failed to load', filename);
-    delete window._weekLoadCallbacks[weekNum];
-    callback(null);
-    document.head.removeChild(script);
-  };
-  document.head.appendChild(script);
+  fetch(filename + '?v=' + Date.now())
+    .then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    })
+    .then(jsText => {
+      // Execute the JS to populate window.WEEK_DATA_N
+      const fn = new Function(jsText);
+      fn();
+      const data = window['WEEK_DATA_' + weekNum];
+      if (data) {
+        loadedWeeks[weekNum] = data;
+        callback(data);
+      } else {
+        console.error('WEEK_DATA_' + weekNum + ' not found after eval');
+        callback(null);
+      }
+    })
+    .catch(err => {
+      console.error('Failed to load week', weekNum, err);
+      callback(null);
+    });
 }
 
 // Weeks metadata (titles, availability) — les données réelles sont dans week-XX.html
