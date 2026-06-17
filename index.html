@@ -533,41 +533,39 @@ let events=gS('calEvents',[]);
 let startDate=gS('startDate',null);
 
 // ── WEEK LOADER ─────────────────────────────────────────────────────────────
-// Les données de chaque semaine sont dans week-XX.html
-// L'index charge dynamiquement le fichier de la semaine demandée
+// Les données de chaque semaine sont dans week-XX.js
+// Chargement via injection de balise <script> — compatible Vercel, zéro CORS
 
-let loadedWeeks = {}; // cache des semaines déjà chargées
+let loadedWeeks = {};
+window._weekLoadCallbacks = {};
 
 function loadWeek(weekNum, callback) {
-  if (loadedWeeks[weekNum]) {
-    callback(loadedWeeks[weekNum]);
+  // Already cached
+  if (loadedWeeks[weekNum]) { callback(loadedWeeks[weekNum]); return; }
+  // Already loading — queue callback
+  if (window._weekLoadCallbacks[weekNum]) {
+    const prev = window._weekLoadCallbacks[weekNum];
+    window._weekLoadCallbacks[weekNum] = (data) => { prev(data); callback(data); };
     return;
   }
-  const filename = `week-${String(weekNum).padStart(2,'0')}.html`;
-  const iframe = document.createElement('iframe');
-  iframe.style.display = 'none';
-  iframe.src = filename;
-  iframe.onload = () => {
-    try {
-      const data = iframe.contentWindow.WEEK_DATA;
-      if (data) {
-        loadedWeeks[weekNum] = data;
-        callback(data);
-      } else {
-        // Retry once after short delay (script might still be executing)
-        setTimeout(() => {
-          const data2 = iframe.contentWindow.WEEK_DATA;
-          if (data2) { loadedWeeks[weekNum] = data2; callback(data2); }
-          else callback(null);
-          document.body.removeChild(iframe);
-        }, 200);
-        return;
-      }
-    } catch(e) { console.error('Week load error:', e); callback(null); }
-    document.body.removeChild(iframe);
+  // Check if already loaded in window (script already ran)
+  const cached = window['WEEK_DATA_' + weekNum];
+  if (cached) { loadedWeeks[weekNum] = cached; callback(cached); return; }
+  // Inject script tag
+  window._weekLoadCallbacks[weekNum] = (data) => {
+    loadedWeeks[weekNum] = data;
+    callback(data);
   };
-  iframe.onerror = () => { callback(null); document.body.removeChild(iframe); };
-  document.body.appendChild(iframe);
+  const filename = 'week-' + String(weekNum).padStart(2,'0') + '.js';
+  const script = document.createElement('script');
+  script.src = filename + '?v=' + Date.now(); // cache-bust
+  script.onerror = () => {
+    console.error('Failed to load', filename);
+    delete window._weekLoadCallbacks[weekNum];
+    callback(null);
+    document.head.removeChild(script);
+  };
+  document.head.appendChild(script);
 }
 
 // Weeks metadata (titles, availability) — les données réelles sont dans week-XX.html
