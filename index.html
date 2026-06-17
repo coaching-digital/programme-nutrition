@@ -1433,7 +1433,14 @@ function confirmReplace(bankId) {
   };
   sS('mealReplacements', mealReplacements);
   closeReplaceModal();
-  renderMealBubbles();
+  // Force re-render - ensure meals view is visible
+  setTimeout(() => {
+    document.getElementById('courses-section').style.display = 'none';
+    const mb = document.getElementById('meals-bubbles');
+    mb.style.display = 'flex';
+    renderMealBubbles();
+    renderDayPills();
+  }, 50);
   showToast('Repas remplacé ✓');
 }
 
@@ -1442,7 +1449,13 @@ function restoreOriginalMeal(mealIndex, e) {
   const key = `w${currentWeek}-${currentDay}-${mealIndex}`;
   delete mealReplacements[key];
   sS('mealReplacements', mealReplacements);
-  renderMealBubbles();
+  setTimeout(() => {
+    document.getElementById('courses-section').style.display = 'none';
+    const mb = document.getElementById('meals-bubbles');
+    mb.style.display = 'flex';
+    renderMealBubbles();
+    renderDayPills();
+  }, 50);
   showToast('Repas original restauré ✓');
 }
 
