@@ -178,6 +178,21 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg-base);ov
 .meal-check.checked{background:linear-gradient(135deg,var(--rose),var(--peach));border-color:transparent;color:#fff;box-shadow:0 2px 8px rgba(255,107,157,.35)}
 .meal-arrow{color:var(--text-soft);font-size:16px;flex-shrink:0}
 
+/* MEAL SECTION TITLES */
+.meal-section-title{font-size:12px;font-weight:800;color:var(--text-mid);text-transform:uppercase;letter-spacing:.05em;margin:14px 2px 2px;padding-bottom:4px;border-bottom:1.5px solid rgba(255,107,157,.12)}
+.meal-section-title:first-child{margin-top:2px}
+
+/* DAY KCAL TOTAL BAR */
+.day-kcal-total-bar{margin:8px 18px 4px;text-align:center;font-size:12px;font-weight:700;color:var(--rose);background:var(--rose-light);border-radius:var(--radius-pill);padding:6px 12px}
+
+/* DESSERT TOGGLE */
+.dessert-toggle-row{display:flex;align-items:center;justify-content:space-between;padding:4px 2px 8px;margin-top:2px}
+.dessert-toggle-label{font-size:12px;font-weight:700;color:var(--text-mid)}
+.dessert-toggle-btn{width:42px;height:24px;border-radius:14px;border:none;background:rgba(180,160,190,.25);position:relative;cursor:pointer;transition:background .2s;padding:0;flex-shrink:0}
+.dessert-toggle-btn.on{background:linear-gradient(135deg,var(--rose),var(--peach))}
+.dessert-toggle-knob{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .2s}
+.dessert-toggle-btn.on .dessert-toggle-knob{transform:translateX(18px)}
+
 /* RECIPE MODAL */
 .modal-overlay{display:none;position:fixed;inset:0;z-index:300;background:rgba(45,27,51,.5);backdrop-filter:blur(6px)}
 .modal-overlay.open{display:flex;align-items:flex-end}
@@ -558,6 +573,7 @@ canvas{max-height:180px}
   <div class="back-bar"><button class="back-btn" onclick="closeWeek()">←</button><span class="back-title" id="week-screen-title">Semaine 1</span></div>
   <div class="week-summary"><div class="ws-stats"><div class="ws-stat"><div class="ws-val">1 550</div><div class="ws-label">kcal/jour</div></div><div class="ws-stat"><div class="ws-val">110 g</div><div class="ws-label">protéines</div></div><div class="ws-stat"><div class="ws-val" id="week-check-count">0/34</div><div class="ws-label">repas cochés</div></div></div></div>
   <div class="days-scroll" id="days-scroll"></div>
+  <div id="day-kcal-total" class="day-kcal-total-bar">— kcal aujourd'hui</div>
   <div id="courses-section" style="display:none"></div>
   <div class="meals-bubbles" id="meals-bubbles"></div>
 </div>
@@ -907,23 +923,67 @@ function renderCourses(){
 }
 function toggleCourse(key,el){const c=!(courseChecks[key]||false);courseChecks[key]=c;sS('courseChecks',courseChecks);el.className='course-chk'+(c?' checked':'');el.textContent=c?'✓':'';const lbl=el.nextElementSibling;lbl.style.textDecoration=c?'line-through':'';lbl.style.color=c?'var(--text-soft)':'';}
 
+const MAX_MAIN_REDUCTION = 0.25; // max 25% reduction on main dish to compensate dessert
+
+function computeDessertAdjustment(mainKcal, dessertKcal){
+  // Returns {mainRatio, dessertRatio} so main+dessert stays == mainKcal (original total)
+  if(!dessertKcal) return {mainRatio:1, dessertRatio:1};
+  const maxReduction = mainKcal * MAX_MAIN_REDUCTION;
+  if(dessertKcal <= maxReduction){
+    return {mainRatio:(mainKcal-dessertKcal)/mainKcal, dessertRatio:1};
+  }
+  return {mainRatio:1-MAX_MAIN_REDUCTION, dessertRatio:maxReduction/dessertKcal};
+}
+
+function scaleMeal(meal, ratio){
+  if(ratio===1) return meal;
+  return {...meal, kcal:Math.round(meal.kcal*ratio), p:Math.round(meal.p*ratio), g:Math.round(meal.g*ratio), l:Math.round(meal.l*ratio)};
+}
+
+const SECTION_DEFS=[
+  {key:'pdj', title:'☀️ Petit-déjeuner', types:['pdj']},
+  {key:'col-matin', title:'🍎 Collation matin', types:['col'], labelMatch:'matin'},
+  {key:'dej', title:'🥗 Déjeuner', types:['dej'], hasDessert:true, dessertMatch:'midi'},
+  {key:'col-am', title:'🍎 Collation après-midi', types:['col'], labelMatch:'après'},
+  {key:'din', title:'🌙 Dîner', types:['din'], hasDessert:true, dessertMatch:'soir'},
+  {key:'autre', title:'✨ Autre', types:['col'], labelMatch:null}
+];
+
 function renderMealBubbles(){
   const meals=(currentWeekData&&currentWeekData.days&&currentWeekData.days[currentDay])||[];const list=document.getElementById('meals-bubbles');
   if(!meals.length){list.innerHTML='<div class="empty-state"><div class="empty-icon">🍽️</div><div class="empty-title">Jour non disponible</div></div>';return;}
-  const key=`w${currentWeek}-${currentDay}`;const checks=mealChecks[key]||[];
+  const checkKey=`w${currentWeek}-${currentDay}`;const checks=mealChecks[checkKey]||[];
   const all=[...(RECIPE_BANK.plats||[]),...(RECIPE_BANK.desserts||[])];
-  list.innerHTML=meals.map((meal,i)=>{
+
+  // Identify indices by role
+  const idxByType={pdj:[],col:[],dej:[],din:[],des:[]};
+  meals.forEach((m,i)=>{(idxByType[m.type]||idxByType.col).push(i);});
+  const colIndices=idxByType.col.slice();
+  const colMatin=colIndices.find(i=>/matin/i.test(meals[i].label));
+  const colAM=colIndices.find(i=>/après|apres/i.test(meals[i].label));
+  const colAutres=colIndices.filter(i=>i!==colMatin && i!==colAM);
+  const dejIdx=idxByType.dej[0];
+  const dinIdx=idxByType.din[0];
+  const desMidiIdx=meals.findIndex(m=>m.id&&m.id.includes('des-midi'));
+  const desSoirIdx=meals.findIndex(m=>m.id&&m.id.includes('des-soir'));
+
+  function getDisplayMeal(i){
+    const meal=meals[i];
     const replKey=`w${currentWeek}-${currentDay}-${i}`;
     const repl=mealReplacements[replKey];
     const bankRecipe=repl?all.find(r=>r.id===repl.replacedBy):null;
-    const displayMeal=bankRecipe?{...meal,name:bankRecipe.name,kcal:bankRecipe.kcal,p:bankRecipe.p,g:bankRecipe.g,l:bankRecipe.l}:meal;
+    return {meal, repl, bankRecipe, displayMeal: bankRecipe?{...meal,name:bankRecipe.name,kcal:bankRecipe.kcal,p:bankRecipe.p,g:bankRecipe.g,l:bankRecipe.l}:meal};
+  }
+
+  function bubbleHtml(i, scaleRatio){
+    const {meal, repl, bankRecipe, displayMeal: dm} = getDisplayMeal(i);
+    const displayMeal = scaleRatio!==undefined && scaleRatio!==1 ? scaleMeal(dm, scaleRatio) : dm;
     const checked=checks.includes(i);
     const dotCls={pdj:'dot-pdj',col:'dot-col',dej:'dot-dej',din:'dot-din',des:'dot-des'}[meal.type]||'dot-dej';
     const tags=(meal.af&&!repl?'<span class="tag tag-af">🔥 Air fryer</span>':'')+(meal.transport&&!repl?`<span class="tag tag-transport">📦 ${meal.transport}</span>`:'');
     const replBadge=repl?`<span class="meal-replaced-badge" onclick="event.stopPropagation()">🔄 Remplacé · <button style="background:none;border:none;color:var(--lav);font-size:10px;font-weight:700;cursor:pointer;font-family:var(--font);padding:0" onclick="restoreOriginalMeal(${i},event)">↩ Annuler</button></span>`:'';
     return `<div class="meal-bubble glass-card${checked?' checked':''}" onclick="${bankRecipe?`openBankRecipe('${bankRecipe.id}')`:`openRecipe('${meal.id}')`}">
       <div class="meal-left">
-        <div class="meal-type-row"><div class="type-dot ${dotCls}"></div><span class="meal-type-label">${meal.label}</span></div>
         ${replBadge}
         <div class="meal-name">${displayMeal.name}</div>
         ${displayMeal.kcal>0?`<div class="meal-kcal">${displayMeal.kcal} kcal · P${displayMeal.p}g · G${displayMeal.g}g · L${displayMeal.l}g</div>`:'<div class="meal-kcal">Batch cooking libre</div>'}
@@ -932,7 +992,119 @@ function renderMealBubbles(){
       ${meal.kcal>0?`<div class="meal-check${checked?' checked':''}" onclick="event.stopPropagation();toggleMealCheck(${i})" title="Cocher ce repas">${checked?'✓':''}</div>`:''}
       <div class="meal-arrow">›</div>
     </div>`;
-  }).join('');
+  }
+
+  function sectionTitle(title){
+    return `<div class="meal-section-title">${title}</div>`;
+  }
+
+  function dessertToggleHtml(toggleKey, isOn){
+    return `<div class="dessert-toggle-row">
+      <span class="dessert-toggle-label">🍰 Dessert</span>
+      <button class="dessert-toggle-btn${isOn?' on':''}" onclick="toggleDessert('${toggleKey}')">
+        <span class="dessert-toggle-knob"></span>
+      </button>
+    </div>`;
+  }
+
+  let html='';
+
+  // Petit-déjeuner
+  if(idxByType.pdj.length){
+    html+=sectionTitle('☀️ Petit-déjeuner');
+    idxByType.pdj.forEach(i=>html+=bubbleHtml(i));
+  }
+  // Collation matin
+  if(colMatin!==undefined){
+    html+=sectionTitle('🍎 Collation matin');
+    html+=bubbleHtml(colMatin);
+  }
+  // Déjeuner (+ dessert toggle)
+  if(dejIdx!==undefined && dejIdx>=0){
+    html+=sectionTitle('🥗 Déjeuner');
+    const toggleKeyMidi=`w${currentWeek}-${currentDay}-dej`;
+    const dessertOnMidi = dessertToggles[toggleKeyMidi]!==false; // default true
+    if(desMidiIdx>=0){
+      html+=dessertToggleHtml(toggleKeyMidi, dessertOnMidi);
+      const dejMeal=meals[dejIdx], desMeal=meals[desMidiIdx];
+      const {mainRatio, dessertRatio}=computeDessertAdjustment(dejMeal.kcal, desMeal.kcal);
+      if(dessertOnMidi){
+        html+=bubbleHtml(dejIdx, mainRatio);
+        html+=bubbleHtml(desMidiIdx, dessertRatio);
+      } else {
+        html+=bubbleHtml(dejIdx, 1);
+      }
+    } else {
+      html+=bubbleHtml(dejIdx);
+    }
+  }
+  // Collation après-midi
+  if(colAM!==undefined){
+    html+=sectionTitle('🍎 Collation après-midi');
+    html+=bubbleHtml(colAM);
+  }
+  // Dîner (+ dessert toggle)
+  if(dinIdx!==undefined && dinIdx>=0){
+    html+=sectionTitle('🌙 Dîner');
+    const toggleKeySoir=`w${currentWeek}-${currentDay}-din`;
+    const dessertOnSoir = dessertToggles[toggleKeySoir]!==false; // default true
+    if(desSoirIdx>=0){
+      html+=dessertToggleHtml(toggleKeySoir, dessertOnSoir);
+      const dinMeal=meals[dinIdx], desMeal=meals[desSoirIdx];
+      const {mainRatio, dessertRatio}=computeDessertAdjustment(dinMeal.kcal, desMeal.kcal);
+      if(dessertOnSoir){
+        html+=bubbleHtml(dinIdx, mainRatio);
+        html+=bubbleHtml(desSoirIdx, dessertRatio);
+      } else {
+        html+=bubbleHtml(dinIdx, 1);
+      }
+    } else {
+      html+=bubbleHtml(dinIdx);
+    }
+  }
+  // Autres collations restantes (ex: batch cooking dimanche)
+  colAutres.forEach(i=>{
+    if(i===colMatin||i===colAM)return;
+    html+=sectionTitle(meals[i].label.includes('Batch')?'🧺 Batch cooking':'🍎 '+meals[i].label);
+    html+=bubbleHtml(i);
+  });
+
+  list.innerHTML=html;
+  updateDayKcalTotal();
+}
+
+function toggleDessert(key){
+  dessertToggles[key] = !(dessertToggles[key]!==false);
+  sS('dessertToggles', dessertToggles);
+  renderMealBubbles();
+}
+
+function updateDayKcalTotal(){
+  const meals=(currentWeekData&&currentWeekData.days&&currentWeekData.days[currentDay])||[];
+  if(!meals.length)return;
+  let total=0;
+  const desMidiIdx=meals.findIndex(m=>m.id&&m.id.includes('des-midi'));
+  const desSoirIdx=meals.findIndex(m=>m.id&&m.id.includes('des-soir'));
+  const dejIdx=meals.findIndex(m=>m.type==='dej');
+  const dinIdx=meals.findIndex(m=>m.type==='din');
+  meals.forEach((m,i)=>{
+    if(i===desMidiIdx||i===desSoirIdx||i===dejIdx||i===dinIdx) return; // handled separately
+    total+=m.kcal||0;
+  });
+  if(dejIdx>=0){
+    const toggleKeyMidi=`w${currentWeek}-${currentDay}-dej`;
+    const dessertOnMidi = dessertToggles[toggleKeyMidi]!==false;
+    if(desMidiIdx>=0 && dessertOnMidi){ total += meals[dejIdx].kcal; }
+    else if(desMidiIdx>=0 && !dessertOnMidi){ total += meals[dejIdx].kcal; }
+    else { total += meals[dejIdx].kcal; }
+  }
+  if(dinIdx>=0){
+    const toggleKeySoir=`w${currentWeek}-${currentDay}-din`;
+    const dessertOnSoir = dessertToggles[toggleKeySoir]!==false;
+    total += meals[dinIdx].kcal;
+  }
+  const el=document.getElementById('day-kcal-total');
+  if(el) el.textContent=total+' kcal aujourd\u2019hui';
 }
 
 // ── RECIPE MODAL ─────────────────────────────────────────────────────────────
@@ -1158,6 +1330,7 @@ function renderSuivi(){
 // ── CYCLE FÉMININ ────────────────────────────────────────────────────────────
 let cycleData = gS('cycleData', {regles: null, ovulation: null});
 let mealReplacements = gS('mealReplacements', {}); // {key: {replacedBy: bankId, original: mealId}}
+let dessertToggles = gS('dessertToggles', {}); // {key: true/false} — true = avec dessert (default)
 
 function openCycleModal() {
   if(cycleData.regles) document.getElementById('cycle-regles').value = cycleData.regles;
