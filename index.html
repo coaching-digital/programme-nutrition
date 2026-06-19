@@ -887,15 +887,22 @@ function renderMealBubbles(){
   const meals=(currentWeekData&&currentWeekData.days&&currentWeekData.days[currentDay])||[];const list=document.getElementById('meals-bubbles');
   if(!meals.length){list.innerHTML='<div class="empty-state"><div class="empty-icon">🍽️</div><div class="empty-title">Jour non disponible</div></div>';return;}
   const key=`w${currentWeek}-${currentDay}`;const checks=mealChecks[key]||[];
+  const all=[...(RECIPE_BANK.plats||[]),...(RECIPE_BANK.desserts||[])];
   list.innerHTML=meals.map((meal,i)=>{
+    const replKey=`w${currentWeek}-${currentDay}-${i}`;
+    const repl=mealReplacements[replKey];
+    const bankRecipe=repl?all.find(r=>r.id===repl.replacedBy):null;
+    const displayMeal=bankRecipe?{...meal,name:bankRecipe.name,kcal:bankRecipe.kcal,p:bankRecipe.p,g:bankRecipe.g,l:bankRecipe.l}:meal;
     const checked=checks.includes(i);
-    const dotCls={pdj:'dot-pdj',col:'dot-col',dej:'dot-dej',din:'dot-din'}[meal.type]||'dot-dej';
-    const tags=(meal.af?'<span class="tag tag-af">🔥 Air fryer</span>':'')+(meal.transport?`<span class="tag tag-transport">📦 ${meal.transport}</span>`:'');
-    return `<div class="meal-bubble glass-card${checked?' checked':''}" onclick="openRecipe('${meal.id}')">
+    const dotCls={pdj:'dot-pdj',col:'dot-col',dej:'dot-dej',din:'dot-din',des:'dot-des'}[meal.type]||'dot-dej';
+    const tags=(meal.af&&!repl?'<span class="tag tag-af">🔥 Air fryer</span>':'')+(meal.transport&&!repl?`<span class="tag tag-transport">📦 ${meal.transport}</span>`:'');
+    const replBadge=repl?`<span class="meal-replaced-badge" onclick="event.stopPropagation()">🔄 Remplacé · <button style="background:none;border:none;color:var(--lav);font-size:10px;font-weight:700;cursor:pointer;font-family:var(--font);padding:0" onclick="restoreOriginalMeal(${i},event)">↩ Annuler</button></span>`:'';
+    return `<div class="meal-bubble glass-card${checked?' checked':''}" onclick="${bankRecipe?`openBankRecipe('${bankRecipe.id}')`:`openRecipe('${meal.id}')`}">
       <div class="meal-left">
         <div class="meal-type-row"><div class="type-dot ${dotCls}"></div><span class="meal-type-label">${meal.label}</span></div>
-        <div class="meal-name">${meal.name}</div>
-        ${meal.kcal>0?`<div class="meal-kcal">${meal.kcal} kcal · P${meal.p}g · G${meal.g}g · L${meal.l}g</div>`:'<div class="meal-kcal">Batch cooking libre</div>'}
+        ${replBadge}
+        <div class="meal-name">${displayMeal.name}</div>
+        ${displayMeal.kcal>0?`<div class="meal-kcal">${displayMeal.kcal} kcal · P${displayMeal.p}g · G${displayMeal.g}g · L${displayMeal.l}g</div>`:'<div class="meal-kcal">Batch cooking libre</div>'}
         ${tags?`<div class="meal-tags">${tags}</div>`:''}
       </div>
       ${meal.kcal>0?`<div class="meal-check${checked?' checked':''}" onclick="event.stopPropagation();toggleMealCheck(${i})" title="Cocher ce repas">${checked?'✓':''}</div>`:''}
