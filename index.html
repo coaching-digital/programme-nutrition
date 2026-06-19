@@ -282,6 +282,18 @@ canvas{max-height:180px}
 .gender-btn{flex:1;padding:12px;border-radius:var(--radius-sm);border:2px solid rgba(255,107,157,.2);background:rgba(255,255,255,.6);cursor:pointer;font-size:13px;font-weight:700;font-family:var(--font);color:var(--text-mid);transition:all .15s;text-align:center}
 .gender-btn.selected{background:var(--rose-light);border-color:var(--rose);color:var(--rose)}
 .cmp-save-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--rose),var(--peach));color:#fff;border:none;border-radius:var(--radius);font-size:15px;font-weight:800;font-family:var(--font);cursor:pointer;box-shadow:0 4px 14px rgba(255,107,157,.3);margin-top:6px}
+.cmp-delete-btn{width:100%;padding:13px;background:rgba(255,107,157,.08);color:var(--rose);border:1.5px solid rgba(255,107,157,.2);border-radius:var(--radius);font-size:13px;font-weight:700;font-family:var(--font);cursor:pointer;margin-top:10px}
+
+/* MENSURATION BUBBLES */
+.mensuration-row{padding:12px 0;border-bottom:1px solid rgba(255,107,157,.08)}
+.mensuration-row:last-child{border-bottom:none}
+.mensuration-row-label{font-size:12px;font-weight:700;color:var(--text-mid);margin-bottom:8px}
+.mensuration-bubbles-trio{display:flex;align-items:center;gap:6px}
+.mens-bubble{flex:1;background:var(--bg-surface);border:1.5px solid rgba(255,107,157,.12);border-radius:var(--radius-sm);padding:8px 4px;text-align:center;min-width:0}
+.mens-bubble-current{background:var(--rose-light);border-color:rgba(255,107,157,.25)}
+.mens-bubble-val{font-size:15px;font-weight:800;color:var(--text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mens-bubble-lbl{font-size:9px;color:var(--text-soft);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+.mens-bubble-arrow{font-size:13px;color:var(--text-soft);flex-shrink:0;font-weight:700}
 .emoji-picker{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .emoji-opt{width:38px;height:38px;border-radius:10px;border:2px solid transparent;background:rgba(255,255,255,.6);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:all .15s}
 .emoji-opt.selected{border-color:var(--rose);background:var(--rose-light)}
@@ -360,6 +372,7 @@ canvas{max-height:180px}
       </div>
       <div class="input-group" style="margin-bottom:14px"><label>Objectif de perte de poids (kg)</label><input class="input-field" id="cmp-objectif" placeholder="10" inputmode="decimal"></div>
       <button class="cmp-save-btn" onclick="saveCompanion()">Enregistrer ce profil ✓</button>
+      <button class="cmp-delete-btn" id="cmp-delete-btn" style="display:none" onclick="deleteCompanion()">🗑 Supprimer ce compagnon</button>
     </div>
   </div>
 </div>
@@ -532,10 +545,11 @@ canvas{max-height:180px}
     <span class="form-label">Nouvelle mesure</span><span class="form-hint">Entrez vos valeurs du jour</span>
     <div class="input-row"><div class="input-group"><label>Poids (kg)</label><input class="input-field" type="number" id="input-poids" placeholder="75.0" step="0.1" inputmode="decimal"></div><div class="input-group"><label>Tour de taille (cm)</label><input class="input-field" type="number" id="input-taille" placeholder="80" step="0.5" inputmode="decimal"></div></div>
     <div class="input-row"><div class="input-group"><label>Tour de hanches (cm)</label><input class="input-field" type="number" id="input-hanches" placeholder="100" step="0.5" inputmode="decimal"></div><div class="input-group"><label>Tour de cuisses (cm)</label><input class="input-field" type="number" id="input-cuisses" placeholder="60" step="0.5" inputmode="decimal"></div></div>
+    <div class="input-row"><div class="input-group"><label>Tour de bras (cm)</label><input class="input-field" type="number" id="input-bras" placeholder="28" step="0.5" inputmode="decimal"></div><div class="input-group"><label>Tour de poitrine (cm)</label><input class="input-field" type="number" id="input-poitrine" placeholder="90" step="0.5" inputmode="decimal"></div></div>
     <button class="btn-save" onclick="saveMeasure()">Enregistrer ✓</button>
   </div>
   <div class="chart-wrap"><div class="chart-card"><div class="chart-title">Évolution du poids (kg)</div><canvas id="weight-chart"></canvas></div></div>
-  <div class="chart-wrap"><div class="chart-card"><div class="chart-title">Mensurations (cm)</div><canvas id="mensuration-chart"></canvas></div></div>
+  <div class="chart-wrap"><div class="chart-card"><div class="chart-title">Mensurations — départ → actuel</div><div id="mensuration-bubbles"></div></div></div>
   <div class="history-list" id="history-list"><p class="section-title" style="padding:0 0 10px">Historique</p></div>
 </div>
 
@@ -732,6 +746,7 @@ function openCmpModal(idx){
   }
   document.getElementById('gb-f').className='gender-btn'+(cmpGender==='F'?' selected':'');
   document.getElementById('gb-m').className='gender-btn'+(cmpGender==='H'?' selected':'');
+  document.getElementById('cmp-delete-btn').style.display=isEdit?'block':'none';
   document.getElementById('cmp-modal').classList.add('open');
 }
 function selectEmoji(e,el){cmpEmoji=e;document.querySelectorAll('.emoji-opt').forEach(x=>x.classList.remove('selected'));el.classList.add('selected');}
@@ -743,6 +758,15 @@ function saveCompanion(){
   if(cmpEditIndex>=0)companions[cmpEditIndex]=c;else companions.push(c);
   sS('companions',companions);closeCmpModal();renderCompanions();
   showToast(cmpEditIndex>=0?'Profil mis à jour ✓':'Compagnon ajouté ✓');
+}
+function deleteCompanion(){
+  if(cmpEditIndex<0)return;
+  const name=companions[cmpEditIndex]?.name||'ce compagnon';
+  companions.splice(cmpEditIndex,1);
+  sS('companions',companions);
+  closeCmpModal();
+  renderCompanions();
+  showToast(name+' supprimé ✓');
 }
 function editCompanion(i){openCmpModal(i);}
 function closeCmpModal(){document.getElementById('cmp-modal').classList.remove('open');}
@@ -1048,22 +1072,77 @@ function updateWeekCheckCount(){
 function saveMeasure(){
   const poids=document.getElementById('input-poids').value;
   if(!poids){showToast('Entrez au moins votre poids');return;}
-  measures.push({date:new Date().toLocaleDateString('fr-FR'),poids,taille:document.getElementById('input-taille').value,hanches:document.getElementById('input-hanches').value,cuisses:document.getElementById('input-cuisses').value});
+  measures.push({
+    date:new Date().toLocaleDateString('fr-FR'),
+    poids,
+    taille:document.getElementById('input-taille').value,
+    hanches:document.getElementById('input-hanches').value,
+    cuisses:document.getElementById('input-cuisses').value,
+    bras:document.getElementById('input-bras').value,
+    poitrine:document.getElementById('input-poitrine').value
+  });
   sS('measures',measures);
-  ['input-poids','input-taille','input-hanches','input-cuisses'].forEach(id=>document.getElementById(id).value='');
+  ['input-poids','input-taille','input-hanches','input-cuisses','input-bras','input-poitrine'].forEach(id=>document.getElementById(id).value='');
   showToast('Mesure enregistrée ✓');renderSuivi();renderHome();
 }
+
+const MENSURATION_FIELDS=[
+  {key:'taille',label:'Tour de taille',icon:'📏'},
+  {key:'hanches',label:'Tour de hanches',icon:'📐'},
+  {key:'cuisses',label:'Tour de cuisses',icon:'🦵'},
+  {key:'bras',label:'Tour de bras',icon:'💪'},
+  {key:'poitrine',label:'Tour de poitrine',icon:'👚'}
+];
+
+function renderMensurationBubbles(){
+  const container=document.getElementById('mensuration-bubbles');
+  if(!container)return;
+  // For each field, find first and last recorded value
+  const rows=MENSURATION_FIELDS.map(f=>{
+    const withVal=measures.filter(m=>m[f.key]&&m[f.key]!=='');
+    if(!withVal.length)return null;
+    const start=parseFloat(withVal[0][f.key]);
+    const current=parseFloat(withVal[withVal.length-1][f.key]);
+    const diff=(current-start);
+    return {...f,start,current,diff,count:withVal.length};
+  }).filter(Boolean);
+
+  if(!rows.length){
+    container.innerHTML='<div class="empty-state" style="padding:24px 0"><div class="empty-icon">📏</div><div class="empty-title">Aucune mensuration</div><div class="empty-sub">Ajoutez taille, hanches, cuisses, bras ou poitrine ci-dessus pour suivre votre évolution.</div></div>';
+    return;
+  }
+
+  container.innerHTML=rows.map(r=>{
+    const diffTxt=(r.diff>0?'+':'')+r.diff.toFixed(1)+' cm';
+    const diffClass=r.diff<0?'delta-good':(r.diff>0?'delta-bad':'delta-none');
+    const single=r.count<2;
+    return `<div class="mensuration-row">
+      <div class="mensuration-row-label"><span style="margin-right:5px">${r.icon}</span>${r.label}</div>
+      <div class="mensuration-bubbles-trio">
+        <div class="mens-bubble">
+          <div class="mens-bubble-val">${r.start.toFixed(1)}</div>
+          <div class="mens-bubble-lbl">Départ</div>
+        </div>
+        <div class="mens-bubble-arrow">→</div>
+        <div class="mens-bubble mens-bubble-current">
+          <div class="mens-bubble-val">${r.current.toFixed(1)}</div>
+          <div class="mens-bubble-lbl">Actuel</div>
+        </div>
+        <div class="mens-bubble-arrow">=</div>
+        <div class="mens-bubble">
+          <div class="mens-bubble-val ${single?'':diffClass}" ${single?'style="color:var(--text-soft)"':''}>${single?'—':diffTxt}</div>
+          <div class="mens-bubble-lbl">Évolution</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 function renderSuivi(){
   const ctx1=document.getElementById('weight-chart').getContext('2d');
   if(weightChart)weightChart.destroy();
   weightChart=new Chart(ctx1,{type:'line',data:{labels:measures.map(m=>m.date),datasets:[{label:'Poids',data:measures.map(m=>parseFloat(m.poids)),borderColor:'#FF6B9D',backgroundColor:'rgba(255,107,157,.08)',tension:0.4,pointBackgroundColor:'#FF6B9D',pointRadius:5,fill:true}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(255,107,157,.06)'},ticks:{font:{family:'Nunito',size:11}}},x:{grid:{display:false},ticks:{font:{family:'Nunito',size:11},maxRotation:30}}}}});
-  const ctx2=document.getElementById('mensuration-chart').getContext('2d');
-  if(mensChart)mensChart.destroy();
-  const ds=[];
-  if(measures.some(m=>m.taille))ds.push({label:'Taille',data:measures.map(m=>m.taille?parseFloat(m.taille):null),borderColor:'#C084FC',backgroundColor:'transparent',tension:0.4,pointRadius:4});
-  if(measures.some(m=>m.hanches))ds.push({label:'Hanches',data:measures.map(m=>m.hanches?parseFloat(m.hanches):null),borderColor:'#FF6B9D',backgroundColor:'transparent',tension:0.4,pointRadius:4});
-  if(measures.some(m=>m.cuisses))ds.push({label:'Cuisses',data:measures.map(m=>m.cuisses?parseFloat(m.cuisses):null),borderColor:'#FFB347',backgroundColor:'transparent',tension:0.4,pointRadius:4});
-  mensChart=new Chart(ctx2,{type:'line',data:{labels:measures.map(m=>m.date),datasets:ds},options:{responsive:true,plugins:{legend:{labels:{font:{family:'Nunito',size:11},boxWidth:10}}},scales:{y:{grid:{color:'rgba(255,107,157,.06)'},ticks:{font:{family:'Nunito',size:11}}},x:{grid:{display:false},ticks:{font:{family:'Nunito',size:11},maxRotation:30}}}}});
+  renderMensurationBubbles();
   const container=document.getElementById('history-list');
   if(!measures.length){container.innerHTML='<p class="section-title" style="padding:0 0 10px">Historique</p><div class="empty-state"><div class="empty-icon">📏</div><div class="empty-title">Aucune mesure</div><div class="empty-sub">Entrez votre première mesure ci-dessus.</div></div>';return;}
   let html='<p class="section-title" style="padding:0 0 10px">Historique</p>';
