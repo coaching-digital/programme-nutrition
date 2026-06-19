@@ -1204,22 +1204,62 @@ function changePortion(delta){
   document.getElementById('rm-body').innerHTML=recipe?buildRecipeBody(recipe,currentPortion):buildSimpleBody(currentMeal);
 }
 
+function stepsHtmlToText(stepsHtml){
+  // Parse the step-block HTML into clean numbered text
+  const tmp=document.createElement('div');
+  tmp.innerHTML=stepsHtml;
+  const blocks=tmp.querySelectorAll('.step-block');
+  if(!blocks.length){
+    // Fallback: strip tags roughly
+    return tmp.textContent.trim();
+  }
+  let out='';
+  blocks.forEach((b,idx)=>{
+    const num=b.querySelector('.step-num');
+    const title=b.querySelector('.step-title');
+    const timing=b.querySelector('.step-timing');
+    const desc=b.querySelector('.step-desc');
+    const tip=b.querySelector('.step-tip');
+    out+=`${idx+1}. ${title?title.textContent.trim():''}`;
+    if(timing) out+=` (${timing.textContent.trim().replace('⏱','').trim()})`;
+    out+='\n';
+    if(desc) out+=`   ${desc.textContent.trim()}\n`;
+    if(tip) out+=`   💡 ${tip.textContent.trim()}\n`;
+    out+='\n';
+  });
+  return out.trim();
+}
+
 function shareRecipe(){
   if(!currentMeal)return;
-  const recipe=currentWeekData&&currentWeekData.recipes&&currentWeekData.recipes[currentMeal.id];
+  const all=[...(RECIPE_BANK.plats||[]),...(RECIPE_BANK.desserts||[])];
+  const bankR=all.find(r=>r.id===currentMeal.id);
+  const weekRecipe=currentWeekData&&currentWeekData.recipes&&currentWeekData.recipes[currentMeal.id];
+  const recipe=bankR||weekRecipe;
   const cmpNames=selectedCompanionsForRecipe.map(i=>companions[i].name).join(', ');
+
   let txt=`🌸 ${currentMeal.name}\n\n`;
   if(currentMeal.kcal>0)txt+=`📊 ${currentMeal.kcal} kcal · Protéines ${currentMeal.p}g · Glucides ${currentMeal.g}g · Lipides ${currentMeal.l}g\n\n`;
-  if(cmpNames)txt+=`👥 Pour : Pauline + ${cmpNames}\n\n`;
-  txt+=`📝 ${currentMeal.desc}\n\n`;
-  if(recipe&&recipe.ingredients){
+  if(cmpNames)txt+=`👥 Pour : ${cmpNames}\n\n`;
+  if(currentMeal.desc) txt+=`📝 ${currentMeal.desc}\n\n`;
+
+  if(recipe&&recipe.ingredients&&recipe.ingredients.length){
     txt+=`🛒 Ingrédients (×${currentPortion}) :\n`;
     recipe.ingredients.forEach(ing=>{txt+=`• ${ing.name} : ${formatQty(ing.base*currentPortion,ing.unit)}\n`;});
     txt+='\n';
   }
-  txt+=`📱 Partagé depuis Mon Programme Nutrition\nhttps://programme-nutrition.vercel.app`;
-  if(navigator.share){navigator.share({title:currentMeal.name,text:txt}).catch(()=>{});}
-  else{navigator.clipboard.writeText(txt).then(()=>showToast('Recette copiée ✓')).catch(()=>showToast('Copiez le texte manuellement'));}
+
+  if(recipe&&recipe.steps){
+    txt+=`👩‍🍳 Préparation :\n`;
+    txt+=stepsHtmlToText(recipe.steps);
+    txt+='\n';
+  }
+
+  if(navigator.share){
+    navigator.share({title:currentMeal.name,text:txt}).catch(()=>{});
+  } else {
+    navigator.clipboard.writeText(txt).then(()=>showToast('Recette copiée ✓')).catch(()=>showToast('Copiez le texte manuellement'));
+  }
 }
 
 function closeRecipe(){document.getElementById('recipe-modal').classList.remove('open');currentMeal=null;selectedCompanionsForRecipe=[];}
