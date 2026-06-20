@@ -13,6 +13,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -257,6 +259,7 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg-base);ov
 
 /* COURSES */
 .courses-wrap{padding:0 18px}
+.pdf-export-btn{width:100%;padding:12px;margin-bottom:14px;background:rgba(255,107,157,.08);color:var(--rose);border:1.5px solid rgba(255,107,157,.25);border-radius:var(--radius);font-size:13px;font-weight:800;font-family:var(--font);cursor:pointer}
 .bilan-read-wrap{padding:14px 18px 0}
 .bilan-empty-wrap{padding:40px 24px;text-align:center}
 .bilan-empty-icon{font-size:40px;margin-bottom:12px}
@@ -643,6 +646,7 @@ canvas{max-height:180px}
       <button class="recipe-action-btn btn-replace" id="btn-replace-recipe" onclick="openReplaceFromRecipe()" style="display:none">🔄 Remplacer</button>
       <button class="recipe-action-btn btn-cook" onclick="closeRecipe()">✓ Fermer</button>
     </div>
+    <button class="pdf-export-btn" style="margin:10px 20px 0;width:calc(100% - 40px)" onclick="exportRecipePDF()">📄 Exporter cette recette en PDF</button>
   </div>
 </div>
 
@@ -740,7 +744,9 @@ canvas{max-height:180px}
 <!-- WEEK OVERLAY -->
 <div class="week-screen" id="week-screen">
   <div class="back-bar"><button class="back-btn" onclick="closeWeek()">←</button><span class="back-title" id="week-screen-title">Semaine 1</span></div>
-  <div class="week-summary"><div class="ws-stats"><div class="ws-stat"><div class="ws-val">1 550</div><div class="ws-label">kcal/jour</div></div><div class="ws-stat"><div class="ws-val">110 g</div><div class="ws-label">protéines</div></div><div class="ws-stat"><div class="ws-val" id="week-check-count">0/34</div><div class="ws-label">repas cochés</div></div></div></div>
+  <div class="week-summary"><div class="ws-stats"><div class="ws-stat"><div class="ws-val">1 550</div><div class="ws-label">kcal/jour</div></div><div class="ws-stat"><div class="ws-val">110 g</div><div class="ws-label">protéines</div></div><div class="ws-stat"><div class="ws-val" id="week-check-count">0/34</div><div class="ws-label">repas cochés</div></div></div>
+    <button class="pdf-export-btn" style="margin:10px 0 0" onclick="exportWeekRecipesPDF()">📄 Toutes les recettes de la semaine en PDF</button>
+  </div>
   <div class="days-scroll" id="days-scroll"></div>
   <div id="day-kcal-total" class="day-kcal-total-bar">— kcal aujourd'hui</div>
   <div class="water-week-card glass-card">
@@ -760,6 +766,9 @@ canvas{max-height:180px}
   <button class="nav-btn" id="nav-prog" onclick="goScreen('screen-prog')"><span class="nav-icon">🥗</span><span class="nav-label">Programme</span></button>
   <button class="nav-btn" id="nav-suivi" onclick="goScreen('screen-suivi')"><span class="nav-icon">📊</span><span class="nav-label">Suivi</span></button>
 </nav>
+
+<!-- CONTENEUR INVISIBLE POUR CAPTURE PDF (html2canvas) — jamais affiché à l'écran -->
+<div id="pdf-capture-zone" style="position:fixed;top:0;left:-9999px;width:420px;background:#FFF5F8;z-index:-1"></div>
 
 <script>
 const GOAL_LOSS=15,START_WEIGHT=75;
@@ -1139,6 +1148,7 @@ function selectDay(day){currentDay=day;showingCourses=false;showingBilan=false;d
 function renderCourses(){
   const sec=document.getElementById('courses-section');
   let html='<div class="courses-wrap">';
+  html+='<button class="pdf-export-btn" onclick="exportCoursesPDF()">📄 Exporter en PDF</button>';
   Object.entries(currentWeekData.courses).forEach(([cat,items])=>{
     html+=`<div class="courses-cat-title">${cat}</div>`;
     items.forEach((item,i)=>{const key=`w1-course-${cat}-${i}`;const checked=courseChecks[key]||false;html+=`<div class="course-row"><div class="course-chk${checked?' checked':''}" onclick="toggleCourse('${key}',this)">${checked?'✓':''}</div><span class="course-label" style="${checked?'text-decoration:line-through;color:var(--text-soft)':''}">${item.l}</span><span class="course-qty">${item.q}</span></div>`;});
@@ -1146,6 +1156,57 @@ function renderCourses(){
   sec.innerHTML=html+'</div>';
 }
 function toggleCourse(key,el){const c=!(courseChecks[key]||false);courseChecks[key]=c;sS('courseChecks',courseChecks);el.className='course-chk'+(c?' checked':'');el.textContent=c?'✓':'';const lbl=el.nextElementSibling;lbl.style.textDecoration=c?'line-through':'';lbl.style.color=c?'var(--text-soft)':'';}
+
+function exportCoursesPDF(){
+  if(!currentWeekData || !currentWeekData.courses){ showToast('Liste de courses indisponible'); return; }
+  if(typeof window.jspdf === 'undefined'){ showToast('Export PDF en cours de chargement, réessayez dans 1 seconde'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginX = 18;
+  let y = 22;
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(18);
+  doc.setTextColor(232,71,28);
+  doc.text(`Liste de courses — Semaine ${currentWeek}`, marginX, y);
+  y += 6;
+  doc.setDrawColor(232,71,28);
+  doc.setLineWidth(0.5);
+  doc.line(marginX, y, pageWidth-marginX, y);
+  y += 10;
+
+  Object.entries(currentWeekData.courses).forEach(([cat,items])=>{
+    if(y > 270){ doc.addPage(); y = 22; }
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(12);
+    doc.setTextColor(60,52,137);
+    doc.text(cat.toUpperCase(), marginX, y);
+    y += 7;
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(11);
+    doc.setTextColor(40,40,40);
+    items.forEach(item => {
+      if(y > 280){ doc.addPage(); y = 22; }
+      doc.setDrawColor(150,150,150);
+      doc.setLineWidth(0.3);
+      doc.rect(marginX, y-3.5, 4, 4); // checkbox carré
+      doc.text(String(item.l), marginX+8, y);
+      doc.setTextColor(120,120,120);
+      doc.text(String(item.q), pageWidth-marginX, y, {align:'right'});
+      doc.setTextColor(40,40,40);
+      y += 7;
+    });
+    y += 4;
+  });
+
+  doc.setFontSize(9);
+  doc.setTextColor(180,180,180);
+  doc.text('Mon Programme Nutrition', marginX, 290);
+
+  doc.save(`courses-semaine-${currentWeek}.pdf`);
+  showToast('PDF téléchargé ✓');
+}
 
 const MAX_MAIN_REDUCTION = 0.25; // max 25% reduction on main dish to compensate dessert
 
@@ -1403,6 +1464,84 @@ function formatQty(val,unit){
   if(unit==='g'||unit==='ml')return Math.round(val)+'g';
   if(unit==='entier'){const v=Math.round(val*4)/4;return v%1===0?v+'':v+''}
   return (Math.round(val*10)/10)+' '+unit;
+}
+
+// ── EXPORT PDF DES RECETTES (rendu visuel via html2canvas + jsPDF) ───────────
+function buildRecipePdfCardHtml(meal, recipe, portions){
+  portions = portions || 1;
+  const macrosHtml = meal.kcal>0 ? `
+    <span class="macro-chip chip-kcal">${meal.kcal} kcal</span>
+    <span class="macro-chip chip-p">P ${meal.p}g</span>
+    <span class="macro-chip chip-g">G ${meal.g}g</span>
+    <span class="macro-chip chip-l">L ${meal.l}g</span>` : '';
+  const bodyHtml = recipe ? buildRecipeBody(recipe, portions) : buildSimpleBody(meal);
+  return `
+    <div style="font-family:'Nunito',sans-serif;background:#FFF5F8;padding:24px 22px;width:420px;box-sizing:border-box">
+      <div style="font-size:11px;font-weight:700;color:#FF6B9D;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">${meal.label||''}</div>
+      <div style="font-size:21px;font-weight:800;color:#2D1B33;line-height:1.25;margin-bottom:8px">${meal.name}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">${macrosHtml}</div>
+      <div style="background:#fff;border-radius:18px;padding:18px 16px">${bodyHtml}</div>
+      <div style="text-align:center;font-size:10px;color:#B39BBF;font-weight:600;margin-top:16px">🌸 Mon Programme Nutrition</div>
+    </div>`;
+}
+
+async function captureNodeAsCanvas(zone){
+  return await html2canvas(zone, { scale: 2, backgroundColor: '#FFF5F8', useCORS: true });
+}
+
+async function exportRecipePDF(){
+  if(typeof window.jspdf === 'undefined' || typeof html2canvas === 'undefined'){ showToast('Export PDF en cours de chargement, réessayez dans 1 seconde'); return; }
+  if(!currentMeal){ showToast('Aucune recette ouverte'); return; }
+  showToast('Génération du PDF...');
+  const all = getAllReplaceableRecipes();
+  const bankR = all.find(r => r.id === currentMeal.id);
+  const recipe = bankR || (currentWeekData && currentWeekData.recipes && currentWeekData.recipes[currentMeal.id]);
+
+  const zone = document.getElementById('pdf-capture-zone');
+  zone.innerHTML = buildRecipePdfCardHtml(currentMeal, recipe, currentPortion);
+  await new Promise(r => setTimeout(r, 60)); // laisse le DOM se peindre
+
+  const canvas = await captureNodeAsCanvas(zone.firstElementChild);
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const imgWidth = pageWidth - 20;
+  const imgHeight = canvas.height * imgWidth / canvas.width;
+  doc.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 10, 12, imgWidth, imgHeight);
+  doc.save(`recette-${currentMeal.name.toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,40)}.pdf`);
+  zone.innerHTML = '';
+  showToast('PDF téléchargé ✓');
+}
+
+async function exportWeekRecipesPDF(){
+  if(typeof window.jspdf === 'undefined' || typeof html2canvas === 'undefined'){ showToast('Export PDF en cours de chargement, réessayez dans 1 seconde'); return; }
+  if(!currentWeekData || !currentWeekData.days){ showToast('Semaine indisponible'); return; }
+  showToast('Génération du livret PDF, un instant...');
+
+  const zone = document.getElementById('pdf-capture-zone');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const imgWidth = pageWidth - 20;
+
+  let firstPage = true;
+  for(const day of DAYS_ORDER){
+    const meals = currentWeekData.days[day] || [];
+    for(const meal of meals){
+      if(!meal.kcal || meal.kcal <= 0) continue; // ignore les entrées libres type batch cooking
+      const recipe = currentWeekData.recipes && currentWeekData.recipes[meal.id];
+      zone.innerHTML = buildRecipePdfCardHtml({...meal, label: day+' · '+(meal.label||'')}, recipe, 1);
+      await new Promise(r => setTimeout(r, 50));
+      const canvas = await captureNodeAsCanvas(zone.firstElementChild);
+      const imgHeight = canvas.height * imgWidth / canvas.width;
+      if(!firstPage) doc.addPage();
+      doc.addImage(canvas.toDataURL('image/jpeg', 0.9), 'JPEG', 10, 12, imgWidth, imgHeight);
+      firstPage = false;
+    }
+  }
+  zone.innerHTML = '';
+  doc.save(`recettes-semaine-${currentWeek}.pdf`);
+  showToast('Livret PDF téléchargé ✓');
 }
 
 function renderRecipeCompanions(){
@@ -2034,8 +2173,73 @@ function renderBilanSection(weekNum){
         <button class="bilan-btn-secondary" onclick="editBilanFromSection()">✏️ Modifier</button>
         <button class="bilan-btn-primary" onclick="shareBilan()">📤 Partager</button>
       </div>
+      <button class="pdf-export-btn" style="margin-top:10px" onclick="exportBilanPDF()">📄 Exporter en PDF</button>
     </div>
   `;
+}
+
+async function exportBilanPDF(){
+  if(typeof window.jspdf === 'undefined' || typeof html2canvas === 'undefined'){ showToast('Export PDF en cours de chargement, réessayez dans 1 seconde'); return; }
+  const bilan = weeklyBilans[bilanCurrentWeek];
+  if(!bilan){ showToast('Aucun bilan à exporter'); return; }
+  showToast('Génération du PDF...');
+
+  const moodObj = MOOD_BY_KEY[bilan.mood];
+  const statFields = [
+    {key:'poids', label:'Poids', unit:'kg'},
+    {key:'taille', label:'Taille', unit:'cm'},
+    {key:'hanches', label:'Hanches', unit:'cm'},
+    {key:'cuisses', label:'Cuisses', unit:'cm'},
+    {key:'bras', label:'Bras', unit:'cm'},
+    {key:'poitrine', label:'Poitrine', unit:'cm'}
+  ];
+  const statsHtml = statFields.filter(f => bilan[f.key]).map(f => `
+    <div class="bilan-read-stat">
+      <div class="bilan-read-stat-val">${bilan[f.key]}${f.unit==='kg'?'':' '+f.unit}</div>
+      <div class="bilan-read-stat-lbl">${f.label}</div>
+    </div>
+  `).join('');
+  const textBlockPdf = (val) => (val && val.trim()) ?
+    `<div class="bilan-read-section-text">${val.replace(/</g,'&lt;')}</div>` :
+    `<div class="bilan-read-empty">Rien de noté cette semaine.</div>`;
+
+  const zone = document.getElementById('pdf-capture-zone');
+  zone.innerHTML = `
+    <div class="bilan-read-wrap" style="font-family:'Nunito',sans-serif;background:#FFF5F8;padding:24px 22px;width:420px;box-sizing:border-box">
+      <div style="font-size:19px;font-weight:800;color:#2D1B33;margin-bottom:14px">Bilan de la semaine ${bilanCurrentWeek}</div>
+      <div class="bilan-read-hero">
+        <div class="bilan-read-mood-emoji">${moodObj?moodObj.emoji:'🙂'}</div>
+        <div class="bilan-read-mood-label">${moodObj?moodObj.label:''}</div>
+        <div class="bilan-read-date">${bilan.date||''}</div>
+      </div>
+      <div class="bilan-read-stats-title">📏 Mesures du jour</div>
+      <div class="bilan-read-stats-grid">${statsHtml || '<div class="bilan-read-empty">Aucune mesure enregistrée</div>'}</div>
+      <div class="bilan-read-section">
+        <div class="bilan-read-section-title">💪 Ce qui m'a motivée</div>
+        ${textBlockPdf(bilan.motivation)}
+      </div>
+      <div class="bilan-read-section">
+        <div class="bilan-read-section-title">😣 Mes difficultés</div>
+        ${textBlockPdf(bilan.difficultes)}
+      </div>
+      <div class="bilan-read-section">
+        <div class="bilan-read-section-title">📝 Mon ressenti</div>
+        ${textBlockPdf(bilan.ressenti)}
+      </div>
+      <div style="text-align:center;font-size:10px;color:#B39BBF;font-weight:600;margin-top:16px">🌸 Mon Programme Nutrition</div>
+    </div>`;
+  await new Promise(r => setTimeout(r, 60));
+
+  const canvas = await captureNodeAsCanvas(zone.firstElementChild);
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const imgWidth = pageWidth - 20;
+  const imgHeight = canvas.height * imgWidth / canvas.width;
+  doc.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 10, 12, imgWidth, imgHeight);
+  doc.save(`bilan-semaine-${bilanCurrentWeek}.pdf`);
+  zone.innerHTML = '';
+  showToast('PDF téléchargé ✓');
 }
 
 function editBilanFromSection(){
