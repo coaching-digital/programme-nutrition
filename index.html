@@ -1147,23 +1147,39 @@ function renderDayPills(){
     p.textContent=day.slice(0,3)+(dayNum?' '+dayNum:'')+(allDone?' ✓':'');
     p.onclick=()=>selectDay(day);s.appendChild(p);
   });
-  // Banque de recettes pill
-  const bp=document.createElement('div');
-  bp.className='day-pill bank-pill';
-  bp.textContent='🍽️ Banque';
-  bp.onclick=showRecipeBank;
-  s.appendChild(bp);
+  // Pills par catégorie de recettes — remplace l'ancien bouton unique "Banque"
+  const catPills = [
+    {label:'🍽️ Plats', fn:'showRecipesPlats'},
+    {label:'🥗 Salades', fn:'showRecipesSalades'},
+    {label:'🍮 Desserts', fn:'showRecipesDesserts'}
+  ];
+  catPills.forEach(c => {
+    const bp=document.createElement('div');
+    bp.className='day-pill bank-pill';
+    bp.textContent=c.label;
+    bp.onclick=window[c.fn];
+    s.appendChild(bp);
+  });
   // Cycle pill — only shown if current week is impacted
   if(currentWeekCyclePhase) {
     const cp=document.createElement('div');
     const isR=currentWeekCyclePhase==='regles';
     cp.className='day-pill';
     cp.style.cssText=`background:${isR?'rgba(255,107,157,.12)':'rgba(255,179,71,.12)'};border-color:${isR?'rgba(255,107,157,.3)':'rgba(255,179,71,.3)'};color:${isR?'var(--rose)':'var(--peach)'};font-weight:800;flex-shrink:0`;
-    cp.textContent=isR?'🩷 Règles':'✨ Ovulation';
+    cp.textContent=isR?'🩷 Astuces règles':'✨ Ovulation';
     cp.onclick=()=>openCycleAlert(currentWeekCyclePhase);
     s.appendChild(cp);
+    // Bouton supplémentaire : liste des recettes spéciales règles, uniquement en période de règles
+    if(isR){
+      const rp=document.createElement('div');
+      rp.className='day-pill';
+      rp.style.cssText=`background:rgba(255,107,157,.12);border-color:rgba(255,107,157,.3);color:var(--rose);font-weight:800;flex-shrink:0`;
+      rp.textContent='🩷 Recettes règles';
+      rp.onclick=showRecipesRegles;
+      s.appendChild(rp);
+    }
   }
-  // Bilan de la semaine — toujours visible, comme le bouton Banque
+  // Bilan de la semaine — toujours visible
   const bp2=document.createElement('div');
   bp2.className='day-pill bilan-pill';
   bp2.textContent='📋 Bilan';
@@ -2650,33 +2666,73 @@ function closeEventImpactIfBackdrop(e) { if(e.target===document.getElementById('
 // ── BANQUE DE RECETTES ───────────────────────────────────────────────────────
 let bankCurrentMeal = null; // meal being replaced
 
-function showRecipeBank() {
-  // Show recipe bank in the meals area
+// Helper commun : prépare la zone d'affichage (masque courses/bilan, affiche meals-bubbles)
+function prepareRecipeListDisplay(){
   showingCourses=false; showingBilan=false;
   document.getElementById('courses-section').style.display = 'none';
   document.getElementById('bilan-section').style.display = 'none';
   document.getElementById('meals-bubbles').style.display = 'flex';
-  const list = document.getElementById('meals-bubbles');
+  return document.getElementById('meals-bubbles');
+}
+
+function recipeCardHtml(r){
+  return `<div class="bank-card glass-card" onclick="openBankRecipe('${r.id}')">
+    <div class="bank-card-left">
+      <div class="bank-card-cat">${r.label}</div>
+      <div class="bank-card-name">${r.name}</div>
+      <div class="bank-card-meta">${r.kcal} kcal · P${r.p}g · G${r.g}g · L${r.l}g · ⏱ ${r.time}</div>
+    </div>
+    <div class="bank-card-arrow">›</div>
+  </div>`;
+}
+
+function showRecipesPlats(){
+  const list = prepareRecipeListDisplay();
   const cats = [
     {key:'plat', label:'Déjeuners & Dîners', emoji:'🥗'},
-    {key:'sale', label:'Plats à partager', emoji:'🧀'},
-    {key:'dessert', label:'Desserts', emoji:'🍮'}
+    {key:'sale', label:'Plats à partager', emoji:'🧀'}
   ];
   let html = '';
   cats.forEach(cat => {
-    const items = [...RECIPE_BANK.plats, ...RECIPE_BANK.desserts].filter(r => r.cat === cat.key);
+    const items = RECIPES_PLATS.filter(r => r.cat === cat.key);
     if(!items.length) return;
     html += `<div class="bank-section-title">${cat.emoji} ${cat.label}</div>`;
-    items.forEach(r => {
-      html += `<div class="bank-card glass-card" onclick="openBankRecipe('${r.id}')">
-        <div class="bank-card-left">
-          <div class="bank-card-cat">${r.label}</div>
-          <div class="bank-card-name">${r.name}</div>
-          <div class="bank-card-meta">${r.kcal} kcal · P${r.p}g · G${r.g}g · L${r.l}g · ⏱ ${r.time}</div>
-        </div>
-        <div class="bank-card-arrow">›</div>
-      </div>`;
-    });
+    items.forEach(r => { html += recipeCardHtml(r); });
+  });
+  list.innerHTML = html;
+}
+
+function showRecipesDesserts(){
+  const list = prepareRecipeListDisplay();
+  let html = `<div class="bank-section-title">🍮 Desserts</div>`;
+  RECIPES_DESSERTS.forEach(r => { html += recipeCardHtml(r); });
+  list.innerHTML = html;
+}
+
+function showRecipesSalades(){
+  const list = prepareRecipeListDisplay();
+  let html = `<div class="bank-section-title">🌿 Taboulés</div>`;
+  (RECIPES_SALADES.taboules||[]).forEach(r => { html += recipeCardHtml(r); });
+  html += `<div class="bank-section-title">🥗 Salades originales</div>`;
+  (RECIPES_SALADES.salades||[]).forEach(r => { html += recipeCardHtml(r); });
+  list.innerHTML = html;
+}
+
+function showRecipesRegles(){
+  const list = prepareRecipeListDisplay();
+  const cats = [
+    {key:'petitsDejeuners', label:'Petits-déjeuners', emoji:'☀️'},
+    {key:'dejeuners', label:'Déjeuners', emoji:'🥗'},
+    {key:'diners', label:'Dîners', emoji:'🌙'},
+    {key:'collations', label:'Collations', emoji:'🍎'},
+    {key:'desserts', label:'Desserts', emoji:'🍮'}
+  ];
+  let html = '';
+  cats.forEach(cat => {
+    const items = RECIPES_REGLES[cat.key] || [];
+    if(!items.length) return;
+    html += `<div class="bank-section-title">${cat.emoji} ${cat.label}</div>`;
+    items.forEach(r => { html += recipeCardHtml(r); });
   });
   list.innerHTML = html;
 }
