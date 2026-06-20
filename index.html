@@ -467,7 +467,7 @@ canvas{max-height:180px}
       <div style="font-size:18px;font-weight:800;color:var(--text);margin-bottom:8px">Adapter ton programme pour cette semaine ?</div>
       <div style="font-size:14px;color:var(--text-mid);line-height:1.7;font-weight:500;margin-bottom:16px">Je peux remplacer tes petits-déjeuners, déjeuners, dîners, collations et desserts de cette semaine par des recettes riches en fer et magnésium, pensées spécialement pour cette période.</div>
       <button class="btn-save" onclick="confirmAdaptStart()">🩷 Oui, adapter mon programme</button>
-      <button class="btn-replace-cycle" style="margin-top:10px;background:var(--bg-surface);color:var(--text-mid);border-color:rgba(255,107,157,.15)" onclick="closeAdaptModal()">Non merci, garder le programme actuel</button>
+      <button class="btn-replace-cycle" style="margin-top:10px;background:var(--bg-surface);color:var(--text-mid);border-color:rgba(255,107,157,.15)" onclick="declineAdapt()">Non merci, garder le programme actuel</button>
     </div>
   </div>
 </div>
@@ -939,6 +939,10 @@ function openWeek(w){
       currentWeekCyclePhase = null;
     }
     renderDayPills();renderMealBubbles();updateWeekCheckCount();
+    // Popup automatique d'adaptation règles — une seule fois par semaine
+    if(currentWeekCyclePhase === 'regles' && !reglesPromptAnswered[w] && !reglesAdaptations[w]) {
+      setTimeout(() => openAdaptModal(), 400);
+    }
   });
 }
 function closeWeek(){document.getElementById('week-screen').classList.remove('open');currentWeekCyclePhase=null;}
@@ -1446,6 +1450,7 @@ let cycleData = gS('cycleData', {regles: null, ovulation: null});
 let mealReplacements = gS('mealReplacements', {}); // {key: {replacedBy: bankId, original: mealId}}
 let dessertToggles = gS('dessertToggles', {}); // {key: true/false} — true = avec dessert (default)
 let reglesAdaptations = gS('reglesAdaptations', {}); // {weekNum: {appliedAt, choice:'report'|'abandon', originalKeysSaved:[...]}}
+let reglesPromptAnswered = gS('reglesPromptAnswered', {}); // {weekNum: true} — popup déjà proposée et traitée (oui ou non)
 let pendingAdaptWeek = null; // week number currently being adapted via the popup flow
 
 function openCycleModal() {
@@ -1803,6 +1808,14 @@ function openAdaptModal() {
 function closeAdaptModal() { document.getElementById('adapt-modal').classList.remove('open'); }
 function closeAdaptIfBackdrop(e) { if(e.target===document.getElementById('adapt-modal')) closeAdaptModal(); }
 
+function declineAdapt() {
+  if(pendingAdaptWeek) {
+    reglesPromptAnswered[pendingAdaptWeek] = true;
+    sS('reglesPromptAnswered', reglesPromptAnswered);
+  }
+  closeAdaptModal();
+}
+
 function confirmAdaptStart() {
   closeAdaptModal();
   document.getElementById('adapt-choice-modal').classList.add('open');
@@ -1858,6 +1871,8 @@ function applyAdaptChoice(choice) {
     originalKeysSaved: savedOriginalKeys
   };
   sS('reglesAdaptations', reglesAdaptations);
+  reglesPromptAnswered[weekNum] = true;
+  sS('reglesPromptAnswered', reglesPromptAnswered);
 
   closeAdaptChoiceModal();
   setTimeout(() => {
