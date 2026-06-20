@@ -352,6 +352,24 @@ canvas{max-height:180px}
 
 /* RECIPE BANK */
 .bank-pill{background:linear-gradient(135deg,rgba(192,132,252,.15),rgba(255,107,157,.1));border-color:rgba(192,132,252,.3);color:var(--lav);font-weight:800}
+.bilan-pill{background:linear-gradient(135deg,rgba(255,179,71,.15),rgba(255,107,157,.1));border-color:rgba(255,179,71,.3);color:var(--peach);font-weight:800;flex-shrink:0}
+
+/* BILAN HEBDO */
+.bilan-progress{display:flex;gap:6px;margin:14px 20px 18px}
+.bilan-progress-step{flex:1;height:4px;border-radius:2px;background:rgba(255,107,157,.15)}
+.bilan-progress-step.done{background:linear-gradient(135deg,var(--rose),var(--peach))}
+.mood-selector{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-bottom:18px}
+.mood-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 2px;border-radius:var(--radius-sm);border:1.5px solid rgba(255,107,157,.15);background:var(--bg-surface);cursor:pointer;transition:all .15s;font-family:var(--font)}
+.mood-btn.selected{border-color:var(--rose);background:var(--rose-light)}
+.mood-emoji{font-size:20px}
+.mood-label{font-size:9px;font-weight:700;color:var(--text-mid);text-align:center;line-height:1.2}
+.mood-btn.selected .mood-label{color:var(--rose)}
+.bilan-textarea-label{font-size:13px;font-weight:800;color:var(--text);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.bilan-textarea{width:100%;padding:11px 13px;border:1.5px solid rgba(255,107,157,.2);border-radius:var(--radius-xs);font-size:14px;font-family:var(--font);color:var(--text);background:rgba(255,255,255,.7);resize:vertical;margin-bottom:14px;line-height:1.5}
+.bilan-textarea:focus{outline:none;border-color:var(--rose)}
+.bilan-btn-row{display:flex;gap:8px;margin-top:4px}
+.bilan-btn-secondary{flex:1;padding:14px;background:var(--bg-surface);color:var(--text-mid);border:1.5px solid rgba(255,107,157,.15);border-radius:var(--radius);font-size:14px;font-weight:700;font-family:var(--font);cursor:pointer}
+.bilan-btn-primary{flex:2;padding:14px;background:linear-gradient(135deg,var(--rose),var(--peach));color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:800;font-family:var(--font);cursor:pointer;box-shadow:0 4px 14px rgba(255,107,157,.3)}
 .bank-section-title{font-size:11px;font-weight:800;color:var(--text-soft);text-transform:uppercase;letter-spacing:.07em;padding:14px 18px 8px;margin:0}
 .bank-card{margin:0 18px 10px;padding:14px 16px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:12px}
 .bank-card:active{transform:scale(.98)}
@@ -518,6 +536,64 @@ canvas{max-height:180px}
       <div style="font-size:13px;color:var(--text-mid);font-weight:500" id="replace-meal-name"></div>
     </div>
     <div id="replace-list"></div>
+  </div>
+</div>
+
+<!-- BILAN HEBDO — ÉTAPE 1 : MENSURATIONS -->
+<div class="modal-overlay" id="bilan-step1-modal" onclick="closeBilanStep1IfBackdrop(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <button class="modal-close" onclick="closeBilanStep1()">✕</button>
+    <div style="padding:0 20px 20px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        <span style="font-size:22px">📋</span>
+        <div style="font-size:17px;font-weight:800;color:var(--text)">Bilan de ta semaine</div>
+      </div>
+      <div style="font-size:13px;color:var(--text-mid);font-weight:500" id="bilan-step1-subtitle"></div>
+      <div class="bilan-progress"><div class="bilan-progress-step done"></div><div class="bilan-progress-step" id="bilan-progress-2"></div></div>
+      <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:10px">Tes mesures du jour</div>
+      <div class="input-row"><div class="input-group"><label>Poids (kg)</label><input class="input-field" type="number" id="bilan-input-poids" placeholder="68.2" step="0.1" inputmode="decimal"></div><div class="input-group"><label>Tour de taille (cm)</label><input class="input-field" type="number" id="bilan-input-taille" placeholder="72" step="0.5" inputmode="decimal"></div></div>
+      <div class="input-row"><div class="input-group"><label>Tour de hanches (cm)</label><input class="input-field" type="number" id="bilan-input-hanches" placeholder="96" step="0.5" inputmode="decimal"></div><div class="input-group"><label>Tour de cuisses (cm)</label><input class="input-field" type="number" id="bilan-input-cuisses" placeholder="54" step="0.5" inputmode="decimal"></div></div>
+      <div class="input-row"><div class="input-group"><label>Tour de bras (cm)</label><input class="input-field" type="number" id="bilan-input-bras" placeholder="26" step="0.5" inputmode="decimal"></div><div class="input-group"><label>Tour de poitrine (cm)</label><input class="input-field" type="number" id="bilan-input-poitrine" placeholder="88" step="0.5" inputmode="decimal"></div></div>
+      <div class="bilan-btn-row">
+        <button class="bilan-btn-secondary" onclick="closeBilanStep1()">Plus tard</button>
+        <button class="bilan-btn-primary" onclick="bilanGoToStep2()">Continuer →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BILAN HEBDO — ÉTAPE 2 : RESSENTI -->
+<div class="modal-overlay" id="bilan-step2-modal" onclick="closeBilanStep2IfBackdrop(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <button class="modal-close" onclick="closeBilanStep2()">✕</button>
+    <div style="padding:0 20px 20px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        <span style="font-size:22px">✍️</span>
+        <div style="font-size:17px;font-weight:800;color:var(--text)">Comment t'es-tu sentie ?</div>
+      </div>
+      <div style="font-size:13px;color:var(--text-mid);font-weight:500">Mesures enregistrées ✓</div>
+      <div class="bilan-progress"><div class="bilan-progress-step done"></div><div class="bilan-progress-step done"></div></div>
+
+      <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:8px">Humeur générale de la semaine</div>
+      <div class="mood-selector" id="bilan-mood-selector"></div>
+
+      <div class="bilan-textarea-label">💪 Ce qui m'a motivée</div>
+      <textarea class="bilan-textarea" id="bilan-input-motivation" rows="2" placeholder="Ex : voir mes mensurations bouger, me sentir plus légère..."></textarea>
+
+      <div class="bilan-textarea-label">😣 Mes difficultés</div>
+      <textarea class="bilan-textarea" id="bilan-input-difficultes" rows="2" placeholder="Ex : repas entre amis, fatigue le mercredi..."></textarea>
+
+      <div class="bilan-textarea-label">📝 Mon ressenti général</div>
+      <textarea class="bilan-textarea" id="bilan-input-ressenti" rows="3" placeholder="Comment je me sens à la fin de cette semaine..."></textarea>
+
+      <div class="bilan-btn-row">
+        <button class="bilan-btn-secondary" onclick="bilanBackToStep1()">← Retour</button>
+        <button class="bilan-btn-primary" onclick="saveBilan()">Enregistrer le bilan ✓</button>
+      </div>
+      <button class="recipe-action-btn btn-share" style="margin-top:10px;width:100%" onclick="shareBilan()" id="bilan-share-btn">📤 Partager ce bilan</button>
+    </div>
   </div>
 </div>
 
@@ -1013,6 +1089,14 @@ function renderDayPills(){
     cp.textContent=isR?'🩷 Règles':'✨ Ovulation';
     cp.onclick=()=>openCycleAlert(currentWeekCyclePhase);
     s.appendChild(cp);
+  }
+  // Bilan de la semaine — n'apparaît que si on a déjà rempli ce bilan (sinon il sera proposé en popup)
+  if(weeklyBilans[currentWeek]) {
+    const bp2=document.createElement('div');
+    bp2.className='day-pill bilan-pill';
+    bp2.textContent='📋 Bilan';
+    bp2.onclick=()=>openBilanView(currentWeek);
+    s.appendChild(bp2);
   }
 }
 function toggleCourses(){
@@ -1545,6 +1629,10 @@ let mealReplacements = gS('mealReplacements', {}); // {key: {replacedBy: bankId,
 let dessertToggles = gS('dessertToggles', {}); // {key: true/false} — true = avec dessert (default)
 let reglesAdaptations = gS('reglesAdaptations', {}); // {weekNum: {appliedAt, choice:'report'|'abandon', originalKeysSaved:[...]}}
 let reglesPromptAnswered = gS('reglesPromptAnswered', {}); // {weekNum: true} — popup déjà proposée et traitée (oui ou non)
+let weeklyBilans = gS('weeklyBilans', {}); // {weekNum: {date, poids, taille, hanches, cuisses, bras, poitrine, mood, motivation, difficultes, ressenti}}
+let bilanStep1Data = null; // données mensurations temporaires entre étape 1 et étape 2
+let bilanSelectedMood = null;
+let bilanCurrentWeek = null; // semaine concernée par le bilan en cours d'édition
 let pendingAdaptWeek = null; // week number currently being adapted via the popup flow
 
 function openCycleModal() {
@@ -1698,7 +1786,182 @@ function getDateForDay(weekNum, dayName){
   return d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
 }
 
-// ── EVENT IMPACT ──────────────────────────────────────────────────────────────
+// ── BILAN DE LA SEMAINE ───────────────────────────────────────────────────────
+// Trouve le numéro de semaine (1 à 12) dans laquelle tombe la date du jour
+function getCurrentWeekNumber(){
+  if(!startDate) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  for(let w=1; w<=12; w++){
+    const dates = getWeekDates(w);
+    if(!dates) continue;
+    const wEnd = new Date(dates.endD); wEnd.setHours(23,59,59,0);
+    const wStart = new Date(dates.startD); wStart.setHours(0,0,0,0);
+    if(today >= wStart && today <= wEnd) return w;
+  }
+  return null;
+}
+
+// Vérifie si aujourd'hui est le dernier jour réel de la semaine donnée
+function isLastDayOfWeek(weekNum){
+  const dates = getWeekDates(weekNum);
+  if(!dates) return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const wEnd = new Date(dates.endD); wEnd.setHours(0,0,0,0);
+  return today.getTime() === wEnd.getTime();
+}
+
+// Appelé au démarrage de l'app — déclenche le popup de bilan si on est le dernier
+// jour de la semaine en cours et que le bilan n'a pas encore été rempli
+function checkWeeklyReviewPrompt(){
+  const w = getCurrentWeekNumber();
+  if(!w) return;
+  if(!isLastDayOfWeek(w)) return;
+  if(weeklyBilans[w]) return; // déjà rempli
+  bilanCurrentWeek = w;
+  setTimeout(() => openBilanStep1(w), 600);
+}
+
+function openBilanStep1(weekNum, prefill){
+  bilanCurrentWeek = weekNum;
+  const dates = getWeekDates(weekNum);
+  const dateLabel = dates ? dates.end : '';
+  document.getElementById('bilan-step1-subtitle').textContent = `${dateLabel} — dernier jour de ta semaine ${weekNum}`;
+  const existing = prefill || weeklyBilans[weekNum];
+  const fields = ['poids','taille','hanches','cuisses','bras','poitrine'];
+  fields.forEach(f => {
+    const el = document.getElementById('bilan-input-'+f);
+    if(el) el.value = existing && existing[f] ? existing[f] : '';
+  });
+  document.getElementById('bilan-step1-modal').classList.add('open');
+}
+function closeBilanStep1(){ document.getElementById('bilan-step1-modal').classList.remove('open'); }
+function closeBilanStep1IfBackdrop(e){ if(e.target===document.getElementById('bilan-step1-modal')) closeBilanStep1(); }
+
+function bilanGoToStep2(){
+  const poids = document.getElementById('bilan-input-poids').value;
+  if(!poids){ showToast('Entrez au moins votre poids'); return; }
+  bilanStep1Data = {
+    poids,
+    taille: document.getElementById('bilan-input-taille').value,
+    hanches: document.getElementById('bilan-input-hanches').value,
+    cuisses: document.getElementById('bilan-input-cuisses').value,
+    bras: document.getElementById('bilan-input-bras').value,
+    poitrine: document.getElementById('bilan-input-poitrine').value
+  };
+  closeBilanStep1();
+  openBilanStep2();
+}
+
+function openBilanStep2(){
+  const existing = weeklyBilans[bilanCurrentWeek];
+  bilanSelectedMood = existing ? existing.mood : null;
+  renderMoodSelector();
+  document.getElementById('bilan-input-motivation').value = existing ? (existing.motivation||'') : '';
+  document.getElementById('bilan-input-difficultes').value = existing ? (existing.difficultes||'') : '';
+  document.getElementById('bilan-input-ressenti').value = existing ? (existing.ressenti||'') : '';
+  document.getElementById('bilan-step2-modal').classList.add('open');
+}
+function closeBilanStep2(){ document.getElementById('bilan-step2-modal').classList.remove('open'); }
+function closeBilanStep2IfBackdrop(e){ if(e.target===document.getElementById('bilan-step2-modal')) closeBilanStep2(); }
+function bilanBackToStep1(){
+  closeBilanStep2();
+  openBilanStep1(bilanCurrentWeek, bilanStep1Data);
+}
+
+const MOODS = [
+  {key:'difficile', emoji:'😞', label:'Difficile'},
+  {key:'moyen', emoji:'😕', label:'Moyen'},
+  {key:'plutot-bien', emoji:'🙂', label:'Plutôt bien'},
+  {key:'bien', emoji:'😄', label:'Bien'},
+  {key:'top', emoji:'🤩', label:'Top'}
+];
+
+function renderMoodSelector(){
+  const container = document.getElementById('bilan-mood-selector');
+  if(!container) return;
+  container.innerHTML = MOODS.map(m => `
+    <button class="mood-btn${bilanSelectedMood===m.key?' selected':''}" onclick="selectMood('${m.key}')">
+      <span class="mood-emoji">${m.emoji}</span>
+      <span class="mood-label">${m.label}</span>
+    </button>
+  `).join('');
+}
+function selectMood(key){
+  bilanSelectedMood = key;
+  renderMoodSelector();
+}
+
+function saveBilan(){
+  if(!bilanSelectedMood){ showToast('Choisis une humeur pour ta semaine'); return; }
+  const weekNum = bilanCurrentWeek;
+  const bilan = {
+    date: new Date().toLocaleDateString('fr-FR'),
+    ...bilanStep1Data,
+    mood: bilanSelectedMood,
+    motivation: document.getElementById('bilan-input-motivation').value,
+    difficultes: document.getElementById('bilan-input-difficultes').value,
+    ressenti: document.getElementById('bilan-input-ressenti').value
+  };
+  weeklyBilans[weekNum] = bilan;
+  sS('weeklyBilans', weeklyBilans);
+
+  // Alimente aussi l'historique des mensurations (Suivi)
+  measures.push({
+    date: bilan.date,
+    poids: bilan.poids,
+    taille: bilan.taille,
+    hanches: bilan.hanches,
+    cuisses: bilan.cuisses,
+    bras: bilan.bras,
+    poitrine: bilan.poitrine
+  });
+  sS('measures', measures);
+
+  closeBilanStep2();
+  showToast('Bilan de la semaine enregistré ✓ 🌸');
+  if(typeof renderHome === 'function') renderHome();
+  if(currentWeek === weekNum) renderDayPills();
+}
+
+function openBilanView(weekNum){
+  const bilan = weeklyBilans[weekNum];
+  if(!bilan){ openBilanStep1(weekNum); return; }
+  bilanCurrentWeek = weekNum;
+  bilanStep1Data = { poids:bilan.poids, taille:bilan.taille, hanches:bilan.hanches, cuisses:bilan.cuisses, bras:bilan.bras, poitrine:bilan.poitrine };
+  bilanSelectedMood = bilan.mood;
+  renderMoodSelector();
+  document.getElementById('bilan-input-motivation').value = bilan.motivation || '';
+  document.getElementById('bilan-input-difficultes').value = bilan.difficultes || '';
+  document.getElementById('bilan-input-ressenti').value = bilan.ressenti || '';
+  document.getElementById('bilan-step2-modal').classList.add('open');
+}
+
+function shareBilan(){
+  const bilan = weeklyBilans[bilanCurrentWeek];
+  if(!bilan) return;
+  const moodObj = MOODS.find(m => m.key === bilan.mood);
+  let txt = `🌸 Bilan de ma semaine ${bilanCurrentWeek}\n\n`;
+  txt += `📅 ${bilan.date}\n`;
+  txt += `${moodObj?moodObj.emoji:''} Humeur générale : ${moodObj?moodObj.label:''}\n\n`;
+  txt += `📏 Mesures :\n`;
+  if(bilan.poids) txt += `• Poids : ${bilan.poids} kg\n`;
+  if(bilan.taille) txt += `• Taille : ${bilan.taille} cm\n`;
+  if(bilan.hanches) txt += `• Hanches : ${bilan.hanches} cm\n`;
+  if(bilan.cuisses) txt += `• Cuisses : ${bilan.cuisses} cm\n`;
+  if(bilan.bras) txt += `• Bras : ${bilan.bras} cm\n`;
+  if(bilan.poitrine) txt += `• Poitrine : ${bilan.poitrine} cm\n`;
+  txt += '\n';
+  if(bilan.motivation) txt += `💪 Ce qui m'a motivée :\n${bilan.motivation}\n\n`;
+  if(bilan.difficultes) txt += `😣 Mes difficultés :\n${bilan.difficultes}\n\n`;
+  if(bilan.ressenti) txt += `📝 Mon ressenti :\n${bilan.ressenti}\n\n`;
+  if(navigator.share){
+    navigator.share({title:`Bilan semaine ${bilanCurrentWeek}`, text:txt}).catch(()=>{});
+  } else {
+    navigator.clipboard.writeText(txt).then(()=>showToast('Bilan copié ✓')).catch(()=>showToast('Copiez le texte manuellement'));
+  }
+}
+
+
 let pendingEventName = '', pendingEventDate = '', selectedImpact = null;
 
 const IMPACT_CHOICES = [
@@ -2053,6 +2316,7 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
 loadRecipeBank();
 loadRecipesRegles();
 renderHome();
+checkWeeklyReviewPrompt();
 </script>
 </body>
 </html>
