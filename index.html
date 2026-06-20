@@ -257,6 +257,11 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg-base);ov
 
 /* COURSES */
 .courses-wrap{padding:0 18px}
+.bilan-read-wrap{padding:14px 18px 0}
+.bilan-empty-wrap{padding:40px 24px;text-align:center}
+.bilan-empty-icon{font-size:40px;margin-bottom:12px}
+.bilan-empty-title{font-size:15px;font-weight:800;color:var(--text);margin-bottom:6px}
+.bilan-empty-sub{font-size:13px;color:var(--text-mid);font-weight:500;line-height:1.6}
 .courses-cat-title{font-size:11px;font-weight:800;color:var(--text-mid);text-transform:uppercase;letter-spacing:.07em;margin:12px 0 5px}
 .course-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,107,157,.07)}
 .course-row:last-child{border-bottom:none}
@@ -554,44 +559,6 @@ canvas{max-height:180px}
   </div>
 </div>
 
-<!-- BILAN HEBDO — VUE LECTURE (journal) -->
-<div class="modal-overlay" id="bilan-read-modal" onclick="closeBilanReadIfBackdrop(event)">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <button class="modal-close" onclick="closeBilanRead()">✕</button>
-    <div style="padding:0 20px 20px">
-      <div style="font-size:17px;font-weight:800;color:var(--text);margin-bottom:14px" id="bilan-read-title">Bilan de la semaine</div>
-
-      <div class="bilan-read-hero">
-        <div class="bilan-read-mood-emoji" id="bilan-read-mood-emoji"></div>
-        <div class="bilan-read-mood-label" id="bilan-read-mood-label"></div>
-        <div class="bilan-read-date" id="bilan-read-date"></div>
-      </div>
-
-      <div class="bilan-read-stats-title">📏 Mesures du jour</div>
-      <div class="bilan-read-stats-grid" id="bilan-read-stats"></div>
-
-      <div class="bilan-read-section">
-        <div class="bilan-read-section-title">💪 Ce qui m'a motivée</div>
-        <div class="bilan-read-section-text" id="bilan-read-motivation"></div>
-      </div>
-      <div class="bilan-read-section">
-        <div class="bilan-read-section-title">😣 Mes difficultés</div>
-        <div class="bilan-read-section-text" id="bilan-read-difficultes"></div>
-      </div>
-      <div class="bilan-read-section">
-        <div class="bilan-read-section-title">📝 Mon ressenti</div>
-        <div class="bilan-read-section-text" id="bilan-read-ressenti"></div>
-      </div>
-
-      <div class="bilan-btn-row">
-        <button class="bilan-btn-secondary" onclick="editBilanFromRead()">✏️ Modifier</button>
-        <button class="bilan-btn-primary" onclick="shareBilan()">📤 Partager</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- BILAN HEBDO — ÉTAPE 1 : MENSURATIONS -->
 <div class="modal-overlay" id="bilan-step1-modal" onclick="closeBilanStep1IfBackdrop(event)">
   <div class="modal-sheet">
@@ -784,6 +751,7 @@ canvas{max-height:180px}
     <div class="water-glasses" id="water-glasses-week"></div>
   </div>
   <div id="courses-section" style="display:none"></div>
+  <div id="bilan-section" style="display:none"></div>
   <div class="meals-bubbles" id="meals-bubbles"></div>
 </div>
 
@@ -1143,22 +1111,31 @@ function renderDayPills(){
     cp.onclick=()=>openCycleAlert(currentWeekCyclePhase);
     s.appendChild(cp);
   }
-  // Bilan de la semaine — n'apparaît que si on a déjà rempli ce bilan (sinon il sera proposé en popup)
-  if(weeklyBilans[currentWeek]) {
-    const bp2=document.createElement('div');
-    bp2.className='day-pill bilan-pill';
-    bp2.textContent='📋 Bilan';
-    bp2.onclick=()=>openBilanView(currentWeek);
-    s.appendChild(bp2);
-  }
+  // Bilan de la semaine — toujours visible, comme le bouton Banque
+  const bp2=document.createElement('div');
+  bp2.className='day-pill bilan-pill';
+  bp2.textContent='📋 Bilan';
+  bp2.onclick=toggleBilanSection;
+  s.appendChild(bp2);
 }
 function toggleCourses(){
   showingCourses=!showingCourses;
+  if(showingCourses) showingBilan=false;
   document.getElementById('courses-section').style.display=showingCourses?'block':'none';
+  document.getElementById('bilan-section').style.display='none';
   document.getElementById('meals-bubbles').style.display=showingCourses?'none':'flex';
   if(showingCourses)renderCourses();
 }
-function selectDay(day){currentDay=day;showingCourses=false;document.getElementById('courses-section').style.display='none';const mb=document.getElementById('meals-bubbles');mb.style.display='flex';renderDayPills();renderMealBubbles();}
+let showingBilan=false;
+function toggleBilanSection(){
+  showingBilan=!showingBilan;
+  if(showingBilan) showingCourses=false;
+  document.getElementById('bilan-section').style.display=showingBilan?'block':'none';
+  document.getElementById('courses-section').style.display='none';
+  document.getElementById('meals-bubbles').style.display=showingBilan?'none':'flex';
+  if(showingBilan)renderBilanSection(currentWeek);
+}
+function selectDay(day){currentDay=day;showingCourses=false;showingBilan=false;document.getElementById('courses-section').style.display='none';document.getElementById('bilan-section').style.display='none';const mb=document.getElementById('meals-bubbles');mb.style.display='flex';renderDayPills();renderMealBubbles();}
 function renderCourses(){
   const sec=document.getElementById('courses-section');
   let html='<div class="courses-wrap">';
@@ -1983,24 +1960,35 @@ function saveBilan(){
   closeBilanStep2();
   showToast('Bilan de la semaine enregistré ✓ 🌸');
   if(typeof renderHome === 'function') renderHome();
-  if(currentWeek === weekNum) renderDayPills();
-  openBilanView(weekNum);
+  if(currentWeek === weekNum) {
+    renderDayPills();
+    showingCourses=false; showingBilan=true;
+    document.getElementById('courses-section').style.display='none';
+    document.getElementById('meals-bubbles').style.display='none';
+    document.getElementById('bilan-section').style.display='block';
+    renderBilanSection(weekNum);
+  }
 }
 
 const MOOD_BY_KEY = {};
 MOODS.forEach(m => MOOD_BY_KEY[m.key] = m);
 
-function openBilanView(weekNum){
+function renderBilanSection(weekNum){
+  const sec = document.getElementById('bilan-section');
   const bilan = weeklyBilans[weekNum];
-  if(!bilan){ openBilanStep1(weekNum); return; }
   bilanCurrentWeek = weekNum;
 
-  document.getElementById('bilan-read-title').textContent = `Bilan de la semaine ${weekNum}`;
-  const moodObj = MOOD_BY_KEY[bilan.mood];
-  document.getElementById('bilan-read-mood-emoji').textContent = moodObj ? moodObj.emoji : '🙂';
-  document.getElementById('bilan-read-mood-label').textContent = moodObj ? moodObj.label : '';
-  document.getElementById('bilan-read-date').textContent = bilan.date || '';
+  if(!bilan){
+    sec.innerHTML = `<div class="bilan-empty-wrap">
+      <div class="bilan-empty-icon">📋</div>
+      <div class="bilan-empty-title">Pas encore de bilan pour cette semaine</div>
+      <div class="bilan-empty-sub">Le bilan se propose automatiquement le dernier jour de la semaine, mais tu peux aussi le démarrer maintenant.</div>
+      <button class="bilan-btn-primary" style="margin-top:14px" onclick="showingBilan=false;document.getElementById('bilan-section').style.display='none';document.getElementById('meals-bubbles').style.display='flex';openBilanStep1(${weekNum})">Démarrer mon bilan</button>
+    </div>`;
+    return;
+  }
 
+  const moodObj = MOOD_BY_KEY[bilan.mood];
   const statFields = [
     {key:'poids', label:'Poids', unit:'kg'},
     {key:'taille', label:'Taille', unit:'cm'},
@@ -2015,32 +2003,53 @@ function openBilanView(weekNum){
       <div class="bilan-read-stat-lbl">${f.label}</div>
     </div>
   `).join('');
-  document.getElementById('bilan-read-stats').innerHTML = statsHtml || '<div class="bilan-read-empty">Aucune mesure enregistrée</div>';
 
-  const setText = (id, val) => {
-    const el = document.getElementById(id);
-    el.textContent = val && val.trim() ? val : '';
-    el.className = val && val.trim() ? 'bilan-read-section-text' : 'bilan-read-empty';
-    if(!(val && val.trim())) el.textContent = 'Rien de noté cette semaine.';
-  };
-  setText('bilan-read-motivation', bilan.motivation);
-  setText('bilan-read-difficultes', bilan.difficultes);
-  setText('bilan-read-ressenti', bilan.ressenti);
+  const textBlock = (val) => (val && val.trim()) ?
+    `<div class="bilan-read-section-text">${val.replace(/</g,'&lt;')}</div>` :
+    `<div class="bilan-read-empty">Rien de noté cette semaine.</div>`;
 
-  document.getElementById('bilan-read-modal').classList.add('open');
+  sec.innerHTML = `
+    <div class="bilan-read-wrap">
+      <div style="font-size:17px;font-weight:800;color:var(--text);margin-bottom:14px">Bilan de la semaine ${weekNum}</div>
+      <div class="bilan-read-hero">
+        <div class="bilan-read-mood-emoji">${moodObj?moodObj.emoji:'🙂'}</div>
+        <div class="bilan-read-mood-label">${moodObj?moodObj.label:''}</div>
+        <div class="bilan-read-date">${bilan.date||''}</div>
+      </div>
+      <div class="bilan-read-stats-title">📏 Mesures du jour</div>
+      <div class="bilan-read-stats-grid">${statsHtml || '<div class="bilan-read-empty">Aucune mesure enregistrée</div>'}</div>
+      <div class="bilan-read-section">
+        <div class="bilan-read-section-title">💪 Ce qui m'a motivée</div>
+        ${textBlock(bilan.motivation)}
+      </div>
+      <div class="bilan-read-section">
+        <div class="bilan-read-section-title">😣 Mes difficultés</div>
+        ${textBlock(bilan.difficultes)}
+      </div>
+      <div class="bilan-read-section">
+        <div class="bilan-read-section-title">📝 Mon ressenti</div>
+        ${textBlock(bilan.ressenti)}
+      </div>
+      <div class="bilan-btn-row">
+        <button class="bilan-btn-secondary" onclick="editBilanFromSection()">✏️ Modifier</button>
+        <button class="bilan-btn-primary" onclick="shareBilan()">📤 Partager</button>
+      </div>
+    </div>
+  `;
 }
-function closeBilanRead(){ document.getElementById('bilan-read-modal').classList.remove('open'); }
-function closeBilanReadIfBackdrop(e){ if(e.target===document.getElementById('bilan-read-modal')) closeBilanRead(); }
 
-function editBilanFromRead(){
-  closeBilanRead();
+function editBilanFromSection(){
   const bilan = weeklyBilans[bilanCurrentWeek];
   bilanStep1Data = { poids:bilan.poids, taille:bilan.taille, hanches:bilan.hanches, cuisses:bilan.cuisses, bras:bilan.bras, poitrine:bilan.poitrine };
   bilanSelectedMood = bilan.mood;
+  showingBilan=false;
+  document.getElementById('bilan-section').style.display='none';
+  document.getElementById('meals-bubbles').style.display='flex';
   openBilanStep1(bilanCurrentWeek, bilanStep1Data);
 }
 
 function shareBilan(){
+
   const bilan = weeklyBilans[bilanCurrentWeek];
   if(!bilan) return;
   const moodObj = MOODS.find(m => m.key === bilan.mood);
@@ -2145,7 +2154,9 @@ let bankCurrentMeal = null; // meal being replaced
 
 function showRecipeBank() {
   // Show recipe bank in the meals area
+  showingCourses=false; showingBilan=false;
   document.getElementById('courses-section').style.display = 'none';
+  document.getElementById('bilan-section').style.display = 'none';
   document.getElementById('meals-bubbles').style.display = 'flex';
   const list = document.getElementById('meals-bubbles');
   const cats = [
