@@ -507,6 +507,7 @@ canvas{max-height:180px}
       <div style="font-size:14px;color:var(--text-mid);line-height:1.7;font-weight:500;margin-bottom:16px" id="cycle-alert-body"></div>
       <div id="cycle-alert-tips" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
       <button class="btn-replace-cycle" id="cycle-alert-adapt-btn" style="display:none" onclick="document.getElementById('cycle-alert-modal').classList.remove('open');openAdaptModal()">🩷 Adapter mon programme pour cette semaine</button>
+      <button class="btn-replace-cycle" id="cycle-alert-restore-btn" style="display:none;background:rgba(192,132,252,.12);color:var(--lav);border-color:rgba(192,132,252,.3)" onclick="confirmRestoreFromCycleAlert()">↩ Revenir au programme initial de la semaine</button>
       <button class="btn-save" onclick="document.getElementById('cycle-alert-modal').classList.remove('open')">Merci ! ✓</button>
     </div>
   </div>
@@ -2087,10 +2088,42 @@ function openCycleAlert(type) {
   document.getElementById('cycle-alert-tips').innerHTML = tips.map(t =>
     '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:rgba(255,255,255,.6);border-radius:12px;font-size:13px;margin-bottom:6px"><span style="font-size:18px;flex-shrink:0">' + t.icon + '</span><span style="color:var(--text-mid);font-weight:500;line-height:1.5">' + t.tip + '</span></div>'
   ).join('');
-  // Bouton d'adaptation du programme — uniquement pour les règles
+  // Numéro de semaine concerné — celui ouvert s'il y en a un, sinon celui calculé depuis aujourd'hui
+  const weekForAlert = currentWeek || getCurrentWeekNumber();
+  cycleAlertWeekNum = weekForAlert;
+  const alreadyAdapted = isR && weekForAlert && !!reglesAdaptations[weekForAlert];
   const adaptBtn = document.getElementById('cycle-alert-adapt-btn');
-  if(adaptBtn) adaptBtn.style.display = isR ? 'block' : 'none';
+  const restoreBtn = document.getElementById('cycle-alert-restore-btn');
+  if(adaptBtn) adaptBtn.style.display = (isR && !alreadyAdapted) ? 'block' : 'none';
+  if(restoreBtn) restoreBtn.style.display = alreadyAdapted ? 'block' : 'none';
   document.getElementById('cycle-alert-modal').classList.add('open');
+}
+
+let cycleAlertWeekNum = null;
+
+// Supprime tous les remplacements créés par l'adaptation règles d'une semaine,
+// en restaurant chaque repas concerné à son contenu original
+function restoreFullWeekFromRegles(weekNum){
+  const adaptation = reglesAdaptations[weekNum];
+  if(!adaptation || !adaptation.originalKeysSaved) return;
+  adaptation.originalKeysSaved.forEach(key => { delete mealReplacements[key]; });
+  sS('mealReplacements', mealReplacements);
+  delete reglesAdaptations[weekNum];
+  sS('reglesAdaptations', reglesAdaptations);
+  // On laisse reglesPromptAnswered tel quel pour ne pas redéclencher le popup automatique
+  showToast('Programme initial restauré ✓');
+  if(currentWeek === weekNum){
+    renderMealBubbles();
+    renderDayPills();
+  }
+  if(typeof renderHome === 'function') renderHome();
+}
+
+function confirmRestoreFromCycleAlert(){
+  const weekNum = cycleAlertWeekNum;
+  if(!weekNum) return;
+  document.getElementById('cycle-alert-modal').classList.remove('open');
+  restoreFullWeekFromRegles(weekNum);
 }
 
 // ── SEMAINE DATES ─────────────────────────────────────────────────────────────
