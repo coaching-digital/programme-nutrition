@@ -411,6 +411,13 @@ canvas{max-height:180px}
 .replace-item-name{font-size:14px;font-weight:600;color:var(--text);flex:1;line-height:1.3}
 .replace-item-meta{font-size:11px;color:var(--text-soft);margin-top:2px;font-weight:500}
 .replace-cat-title{font-size:11px;font-weight:800;color:var(--text-soft);text-transform:uppercase;letter-spacing:.07em;padding:12px 20px 6px;background:var(--bg-surface)}
+.replace-source-card{display:flex;align-items:center;gap:14px;padding:16px 20px;border-bottom:1px solid rgba(255,107,157,.07);cursor:pointer;transition:background .15s}
+.replace-source-card:active{background:var(--rose-light)}
+.replace-source-card:last-child{border-bottom:none}
+.replace-source-icon{font-size:26px;flex-shrink:0}
+.replace-source-title{font-size:15px;font-weight:800;color:var(--text)}
+.replace-source-sub{font-size:12px;color:var(--text-soft);font-weight:500;margin-top:2px}
+.replace-back-btn{display:block;width:100%;text-align:left;padding:12px 20px;background:none;border:none;border-bottom:1px solid rgba(255,107,157,.07);font-size:13px;font-weight:700;color:var(--rose);cursor:pointer;font-family:var(--font)}
 
 /* REPLACED MEAL INDICATOR */
 .meal-replaced-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;background:rgba(192,132,252,.15);color:var(--lav);padding:2px 8px;border-radius:6px;margin-bottom:5px}
@@ -849,22 +856,61 @@ function calcTarget(poids,taille,genre){
 }
 
 
-// ── BANQUE DE RECETTES ───────────────────────────────────────────────────────
-// Chargée depuis recipes-bank.js via fetch() au démarrage
+// ── BANQUE DE RECETTES — PLATS / DESSERTS / SALADES ───────────────────────────
+// Trois fichiers indépendants, chargés via fetch() au démarrage.
+// RECIPE_BANK reste un alias combiné pour la rétrocompatibilité du code existant
+// (PDF, partage, etc.) — il se reconstruit automatiquement à chaque chargement.
+let RECIPES_PLATS = [];
+let RECIPES_DESSERTS = [];
+let RECIPES_SALADES = {taboules:[], salades:[]};
 let RECIPE_BANK = {plats:[], desserts:[]};
 
-function loadRecipeBank() {
-  fetch('recipes-bank.js?v=' + Date.now())
+function refreshRecipeBankAlias(){
+  RECIPE_BANK = { plats: RECIPES_PLATS, desserts: RECIPES_DESSERTS };
+}
+
+function loadRecipesPlats() {
+  fetch('recipes-plats.js?v=' + Date.now())
     .then(r => r.ok ? r.text() : Promise.reject('HTTP ' + r.status))
     .then(js => {
       const fn = new Function(js);
       fn();
-      if(window.RECIPES_BANK_DATA) {
-        RECIPE_BANK = window.RECIPES_BANK_DATA;
-        console.log('Recipe bank loaded:', RECIPE_BANK.plats.length + RECIPE_BANK.desserts.length, 'recipes');
+      if(window.RECIPES_PLATS_DATA) {
+        RECIPES_PLATS = window.RECIPES_PLATS_DATA;
+        refreshRecipeBankAlias();
+        console.log('Recipes plats loaded:', RECIPES_PLATS.length);
       }
     })
-    .catch(err => console.error('Failed to load recipe bank:', err));
+    .catch(err => console.error('Failed to load recipes plats:', err));
+}
+
+function loadRecipesDesserts() {
+  fetch('recipes-desserts.js?v=' + Date.now())
+    .then(r => r.ok ? r.text() : Promise.reject('HTTP ' + r.status))
+    .then(js => {
+      const fn = new Function(js);
+      fn();
+      if(window.RECIPES_DESSERTS_DATA) {
+        RECIPES_DESSERTS = window.RECIPES_DESSERTS_DATA;
+        refreshRecipeBankAlias();
+        console.log('Recipes desserts loaded:', RECIPES_DESSERTS.length);
+      }
+    })
+    .catch(err => console.error('Failed to load recipes desserts:', err));
+}
+
+function loadRecipesSalades() {
+  fetch('recipes-salades.js?v=' + Date.now())
+    .then(r => r.ok ? r.text() : Promise.reject('HTTP ' + r.status))
+    .then(js => {
+      const fn = new Function(js);
+      fn();
+      if(window.RECIPES_SALADES_DATA) {
+        RECIPES_SALADES = window.RECIPES_SALADES_DATA;
+        console.log('Recipes salades loaded:', RECIPES_SALADES.taboules.length + RECIPES_SALADES.salades.length);
+      }
+    })
+    .catch(err => console.error('Failed to load recipes salades:', err));
 }
 
 // ── BANQUE DE RECETTES — SEMAINE DE RÈGLES ────────────────────────────────────
@@ -1234,6 +1280,7 @@ const SECTION_DEFS=[
 function getAllReplaceableRecipes(){
   return [
     ...(RECIPE_BANK.plats||[]), ...(RECIPE_BANK.desserts||[]),
+    ...(RECIPES_SALADES.taboules||[]), ...(RECIPES_SALADES.salades||[]),
     ...(RECIPES_REGLES.petitsDejeuners||[]), ...(RECIPES_REGLES.dejeuners||[]),
     ...(RECIPES_REGLES.diners||[]), ...(RECIPES_REGLES.collations||[]), ...(RECIPES_REGLES.desserts||[])
   ];
@@ -2685,30 +2732,78 @@ function promptReplaceMeal(mealIndex, e) {
   pendingReplaceMealIndex = mealIndex;
   bankCurrentMeal = meal;
   document.getElementById('replace-meal-name').textContent = meal.name;
-  // Build list of bank recipes
-  const all = [...RECIPE_BANK.plats, ...RECIPE_BANK.desserts];
-  const cats = [
-    {key:'plat', label:'Déjeuners & Dîners', emoji:'🥗'},
-    {key:'sale', label:'Plats à partager', emoji:'🧀'},
-    {key:'dessert', label:'Desserts', emoji:'🍮'}
-  ];
-  let html = '';
-  cats.forEach(cat => {
-    const items = all.filter(r => r.cat === cat.key);
-    if(!items.length) return;
-    html += `<div class="replace-cat-title">${cat.emoji} ${cat.label}</div>`;
-    items.forEach(r => {
-      html += `<div class="replace-item" onclick="confirmReplace('${r.id}')">
-        <div style="flex:1">
-          <div class="replace-item-name">${r.name}</div>
-          <div class="replace-item-meta">${r.kcal} kcal · ⏱ ${r.time}</div>
-        </div>
-        <div style="font-size:14px;color:var(--text-soft)">›</div>
-      </div>`;
-    });
-  });
-  document.getElementById('replace-list').innerHTML = html;
+  showReplaceSourceChoice(meal);
   document.getElementById('replace-modal').classList.add('open');
+}
+
+// Détermine si un repas est un dessert (id contenant des-midi / des-soir)
+function isDessertMeal(meal){
+  return !!(meal && meal.id && (meal.id.includes('des-midi') || meal.id.includes('des-soir')));
+}
+
+// Étape 1 du remplacement : choisir la source (Plats cuisinés / Desserts / Salades & Taboulés)
+// Filtrage contextuel : un dessert ne propose que des desserts en remplacement
+function showReplaceSourceChoice(meal){
+  const dessertOnly = isDessertMeal(meal);
+  let html = '';
+  if(!dessertOnly){
+    html += `<div class="replace-source-card" onclick="showReplaceCategoryList('plats')">
+      <div class="replace-source-icon">🍽️</div>
+      <div style="flex:1"><div class="replace-source-title">Plats cuisinés</div><div class="replace-source-sub">Déjeuners, dîners, plats à partager</div></div>
+      <div style="font-size:16px;color:var(--text-soft)">›</div>
+    </div>`;
+  }
+  html += `<div class="replace-source-card" onclick="showReplaceCategoryList('desserts')">
+    <div class="replace-source-icon">🍮</div>
+    <div style="flex:1"><div class="replace-source-title">Desserts</div><div class="replace-source-sub">Tous les desserts de la banque</div></div>
+    <div style="font-size:16px;color:var(--text-soft)">›</div>
+  </div>`;
+  if(!dessertOnly){
+    html += `<div class="replace-source-card" onclick="showReplaceCategoryList('salades')">
+      <div class="replace-source-icon">🥗</div>
+      <div style="flex:1"><div class="replace-source-title">Salades & Taboulés</div><div class="replace-source-sub">Envie de fraîcheur et de saveurs orientales</div></div>
+      <div style="font-size:16px;color:var(--text-soft)">›</div>
+    </div>`;
+  }
+  document.getElementById('replace-list').innerHTML = html;
+}
+
+// Étape 2 : liste des recettes de la source choisie
+function showReplaceCategoryList(source){
+  let html = `<button class="replace-back-btn" onclick="showReplaceSourceChoice(bankCurrentMeal)">‹ Choisir une autre source</button>`;
+
+  if(source === 'plats'){
+    const cats = [
+      {key:'plat', label:'Déjeuners & Dîners', emoji:'🥗'},
+      {key:'sale', label:'Plats à partager', emoji:'🧀'}
+    ];
+    cats.forEach(cat => {
+      const items = RECIPES_PLATS.filter(r => r.cat === cat.key);
+      if(!items.length) return;
+      html += `<div class="replace-cat-title">${cat.emoji} ${cat.label}</div>`;
+      items.forEach(r => { html += replaceItemHtml(r); });
+    });
+  } else if(source === 'desserts'){
+    html += `<div class="replace-cat-title">🍮 Desserts</div>`;
+    RECIPES_DESSERTS.forEach(r => { html += replaceItemHtml(r); });
+  } else if(source === 'salades'){
+    html += `<div class="replace-cat-title">🌿 Taboulés</div>`;
+    (RECIPES_SALADES.taboules||[]).forEach(r => { html += replaceItemHtml(r); });
+    html += `<div class="replace-cat-title">🥗 Salades originales</div>`;
+    (RECIPES_SALADES.salades||[]).forEach(r => { html += replaceItemHtml(r); });
+  }
+
+  document.getElementById('replace-list').innerHTML = html;
+}
+
+function replaceItemHtml(r){
+  return `<div class="replace-item" onclick="confirmReplace('${r.id}')">
+    <div style="flex:1">
+      <div class="replace-item-name">${r.name}</div>
+      <div class="replace-item-meta">${r.kcal} kcal · ⏱ ${r.time}</div>
+    </div>
+    <div style="font-size:14px;color:var(--text-soft)">›</div>
+  </div>`;
 }
 
 function confirmReplace(bankId) {
@@ -2848,29 +2943,7 @@ function openReplaceFromRecipe() {
   pendingReplaceMealIndex = currentMealIndex;
   bankCurrentMeal = meal;
   document.getElementById('replace-meal-name').textContent = meal.name;
-  // Build replace list
-  const all = [...RECIPE_BANK.plats, ...RECIPE_BANK.desserts];
-  const cats = [
-    {key:'plat', label:'Déjeuners & Dîners', emoji:'🥗'},
-    {key:'sale', label:'Plats à partager', emoji:'🧀'},
-    {key:'dessert', label:'Desserts', emoji:'🍮'}
-  ];
-  let html = '';
-  cats.forEach(cat => {
-    const items = all.filter(r => r.cat === cat.key);
-    if(!items.length) return;
-    html += `<div class="replace-cat-title">${cat.emoji} ${cat.label}</div>`;
-    items.forEach(r => {
-      html += `<div class="replace-item" onclick="confirmReplace('${r.id}')">
-        <div style="flex:1">
-          <div class="replace-item-name">${r.name}</div>
-          <div class="replace-item-meta">${r.kcal} kcal · ⏱ ${r.time}</div>
-        </div>
-        <div style="font-size:14px;color:var(--text-soft)">›</div>
-      </div>`;
-    });
-  });
-  document.getElementById('replace-list').innerHTML = html;
+  showReplaceSourceChoice(meal);
   closeRecipe();
   document.getElementById('replace-modal').classList.add('open');
 }
@@ -2879,7 +2952,9 @@ function closeReplaceModal() { document.getElementById('replace-modal').classLis
 function closeReplaceIfBackdrop(e) { if(e.target===document.getElementById('replace-modal')) closeReplaceModal(); }
 
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
-loadRecipeBank();
+loadRecipesPlats();
+loadRecipesDesserts();
+loadRecipesSalades();
 loadRecipesRegles();
 renderHome();
 checkWeeklyReviewPrompt();
