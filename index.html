@@ -370,6 +370,21 @@ canvas{max-height:180px}
 .bilan-btn-row{display:flex;gap:8px;margin-top:4px}
 .bilan-btn-secondary{flex:1;padding:14px;background:var(--bg-surface);color:var(--text-mid);border:1.5px solid rgba(255,107,157,.15);border-radius:var(--radius);font-size:14px;font-weight:700;font-family:var(--font);cursor:pointer}
 .bilan-btn-primary{flex:2;padding:14px;background:linear-gradient(135deg,var(--rose),var(--peach));color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:800;font-family:var(--font);cursor:pointer;box-shadow:0 4px 14px rgba(255,107,157,.3)}
+
+/* BILAN — VUE LECTURE (journal) */
+.bilan-read-hero{text-align:center;padding:18px 20px 14px;background:linear-gradient(135deg,rgba(255,107,157,.1),rgba(192,132,252,.08));border-radius:var(--radius);margin:0 0 18px}
+.bilan-read-mood-emoji{font-size:44px;margin-bottom:6px}
+.bilan-read-mood-label{font-size:14px;font-weight:800;color:var(--rose)}
+.bilan-read-date{font-size:12px;color:var(--text-mid);font-weight:600;margin-top:4px}
+.bilan-read-stats-title{font-size:11px;font-weight:800;color:var(--text-soft);text-transform:uppercase;letter-spacing:.06em;margin:0 0 10px}
+.bilan-read-stats-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:20px}
+.bilan-read-stat{background:var(--bg-surface);border:1.5px solid rgba(255,107,157,.12);border-radius:var(--radius-sm);padding:10px 6px;text-align:center}
+.bilan-read-stat-val{font-size:16px;font-weight:800;color:var(--text)}
+.bilan-read-stat-lbl{font-size:10px;color:var(--text-soft);font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin-top:2px}
+.bilan-read-section{margin-bottom:18px}
+.bilan-read-section-title{font-size:13px;font-weight:800;color:var(--text);margin-bottom:7px;display:flex;align-items:center;gap:6px}
+.bilan-read-section-text{font-size:14px;color:var(--text-mid);line-height:1.7;font-weight:500;white-space:pre-wrap;background:var(--bg-surface);border-radius:var(--radius-sm);padding:12px 14px}
+.bilan-read-empty{font-size:13px;color:var(--text-soft);font-style:italic;padding:8px 0}
 .bank-section-title{font-size:11px;font-weight:800;color:var(--text-soft);text-transform:uppercase;letter-spacing:.07em;padding:14px 18px 8px;margin:0}
 .bank-card{margin:0 18px 10px;padding:14px 16px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:12px}
 .bank-card:active{transform:scale(.98)}
@@ -536,6 +551,44 @@ canvas{max-height:180px}
       <div style="font-size:13px;color:var(--text-mid);font-weight:500" id="replace-meal-name"></div>
     </div>
     <div id="replace-list"></div>
+  </div>
+</div>
+
+<!-- BILAN HEBDO — VUE LECTURE (journal) -->
+<div class="modal-overlay" id="bilan-read-modal" onclick="closeBilanReadIfBackdrop(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <button class="modal-close" onclick="closeBilanRead()">✕</button>
+    <div style="padding:0 20px 20px">
+      <div style="font-size:17px;font-weight:800;color:var(--text);margin-bottom:14px" id="bilan-read-title">Bilan de la semaine</div>
+
+      <div class="bilan-read-hero">
+        <div class="bilan-read-mood-emoji" id="bilan-read-mood-emoji"></div>
+        <div class="bilan-read-mood-label" id="bilan-read-mood-label"></div>
+        <div class="bilan-read-date" id="bilan-read-date"></div>
+      </div>
+
+      <div class="bilan-read-stats-title">📏 Mesures du jour</div>
+      <div class="bilan-read-stats-grid" id="bilan-read-stats"></div>
+
+      <div class="bilan-read-section">
+        <div class="bilan-read-section-title">💪 Ce qui m'a motivée</div>
+        <div class="bilan-read-section-text" id="bilan-read-motivation"></div>
+      </div>
+      <div class="bilan-read-section">
+        <div class="bilan-read-section-title">😣 Mes difficultés</div>
+        <div class="bilan-read-section-text" id="bilan-read-difficultes"></div>
+      </div>
+      <div class="bilan-read-section">
+        <div class="bilan-read-section-title">📝 Mon ressenti</div>
+        <div class="bilan-read-section-text" id="bilan-read-ressenti"></div>
+      </div>
+
+      <div class="bilan-btn-row">
+        <button class="bilan-btn-secondary" onclick="editBilanFromRead()">✏️ Modifier</button>
+        <button class="bilan-btn-primary" onclick="shareBilan()">📤 Partager</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1894,6 +1947,8 @@ function selectMood(key){
 function saveBilan(){
   if(!bilanSelectedMood){ showToast('Choisis une humeur pour ta semaine'); return; }
   const weekNum = bilanCurrentWeek;
+  const wasEditing = !!weeklyBilans[weekNum];
+  const previousDate = wasEditing ? weeklyBilans[weekNum].date : null;
   const bilan = {
     date: new Date().toLocaleDateString('fr-FR'),
     ...bilanStep1Data,
@@ -1905,8 +1960,9 @@ function saveBilan(){
   weeklyBilans[weekNum] = bilan;
   sS('weeklyBilans', weeklyBilans);
 
-  // Alimente aussi l'historique des mensurations (Suivi)
-  measures.push({
+  // Alimente aussi l'historique des mensurations (Suivi) — met à jour l'entrée
+  // existante si on modifie un bilan déjà enregistré, plutôt que d'en créer une en double
+  const measureEntry = {
     date: bilan.date,
     poids: bilan.poids,
     taille: bilan.taille,
@@ -1914,26 +1970,74 @@ function saveBilan(){
     cuisses: bilan.cuisses,
     bras: bilan.bras,
     poitrine: bilan.poitrine
-  });
+  };
+  if(wasEditing && previousDate){
+    const existingIdx = measures.findIndex(m => m.date === previousDate);
+    if(existingIdx >= 0) measures[existingIdx] = measureEntry;
+    else measures.push(measureEntry);
+  } else {
+    measures.push(measureEntry);
+  }
   sS('measures', measures);
 
   closeBilanStep2();
   showToast('Bilan de la semaine enregistré ✓ 🌸');
   if(typeof renderHome === 'function') renderHome();
   if(currentWeek === weekNum) renderDayPills();
+  openBilanView(weekNum);
 }
+
+const MOOD_BY_KEY = {};
+MOODS.forEach(m => MOOD_BY_KEY[m.key] = m);
 
 function openBilanView(weekNum){
   const bilan = weeklyBilans[weekNum];
   if(!bilan){ openBilanStep1(weekNum); return; }
   bilanCurrentWeek = weekNum;
+
+  document.getElementById('bilan-read-title').textContent = `Bilan de la semaine ${weekNum}`;
+  const moodObj = MOOD_BY_KEY[bilan.mood];
+  document.getElementById('bilan-read-mood-emoji').textContent = moodObj ? moodObj.emoji : '🙂';
+  document.getElementById('bilan-read-mood-label').textContent = moodObj ? moodObj.label : '';
+  document.getElementById('bilan-read-date').textContent = bilan.date || '';
+
+  const statFields = [
+    {key:'poids', label:'Poids', unit:'kg'},
+    {key:'taille', label:'Taille', unit:'cm'},
+    {key:'hanches', label:'Hanches', unit:'cm'},
+    {key:'cuisses', label:'Cuisses', unit:'cm'},
+    {key:'bras', label:'Bras', unit:'cm'},
+    {key:'poitrine', label:'Poitrine', unit:'cm'}
+  ];
+  const statsHtml = statFields.filter(f => bilan[f.key]).map(f => `
+    <div class="bilan-read-stat">
+      <div class="bilan-read-stat-val">${bilan[f.key]}${f.unit==='kg'?'':' '+f.unit}</div>
+      <div class="bilan-read-stat-lbl">${f.label}</div>
+    </div>
+  `).join('');
+  document.getElementById('bilan-read-stats').innerHTML = statsHtml || '<div class="bilan-read-empty">Aucune mesure enregistrée</div>';
+
+  const setText = (id, val) => {
+    const el = document.getElementById(id);
+    el.textContent = val && val.trim() ? val : '';
+    el.className = val && val.trim() ? 'bilan-read-section-text' : 'bilan-read-empty';
+    if(!(val && val.trim())) el.textContent = 'Rien de noté cette semaine.';
+  };
+  setText('bilan-read-motivation', bilan.motivation);
+  setText('bilan-read-difficultes', bilan.difficultes);
+  setText('bilan-read-ressenti', bilan.ressenti);
+
+  document.getElementById('bilan-read-modal').classList.add('open');
+}
+function closeBilanRead(){ document.getElementById('bilan-read-modal').classList.remove('open'); }
+function closeBilanReadIfBackdrop(e){ if(e.target===document.getElementById('bilan-read-modal')) closeBilanRead(); }
+
+function editBilanFromRead(){
+  closeBilanRead();
+  const bilan = weeklyBilans[bilanCurrentWeek];
   bilanStep1Data = { poids:bilan.poids, taille:bilan.taille, hanches:bilan.hanches, cuisses:bilan.cuisses, bras:bilan.bras, poitrine:bilan.poitrine };
   bilanSelectedMood = bilan.mood;
-  renderMoodSelector();
-  document.getElementById('bilan-input-motivation').value = bilan.motivation || '';
-  document.getElementById('bilan-input-difficultes').value = bilan.difficultes || '';
-  document.getElementById('bilan-input-ressenti').value = bilan.ressenti || '';
-  document.getElementById('bilan-step2-modal').classList.add('open');
+  openBilanStep1(bilanCurrentWeek, bilanStep1Data);
 }
 
 function shareBilan(){
