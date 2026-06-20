@@ -1547,22 +1547,69 @@ function drawRecipePdfPage(doc, meal, recipe, portions, sectionLabel){
 
   // Ingrédients
   if(recipe && recipe.ingredients && recipe.ingredients.length){
+    const hasCmp = selectedCompanionsForRecipe.length > 0;
+    const cmpNames = hasCmp ? selectedCompanionsForRecipe.map(i=>companions[i].name).join(' + ') : '';
+
     ensureSpace(10);
     doc.setFont('helvetica','bold');
     doc.setFontSize(11);
     doc.setTextColor(...PDF_COLORS.lav);
     doc.text('INGRÉDIENTS' + (portions>1?` (×${portions})`:''), marginX, y);
     y += 7;
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(10.5);
-    recipe.ingredients.forEach(ing => {
-      ensureSpace(7);
-      doc.setTextColor(...PDF_COLORS.text);
-      doc.text(`•  ${ing.name}`, marginX, y);
-      doc.setTextColor(...PDF_COLORS.textMuted);
-      doc.text(formatQty(ing.base*portions, ing.unit), pageWidth-marginX, y, {align:'right'});
-      y += 6.2;
-    });
+
+    if(hasCmp){
+      // En-têtes de colonnes "Vous" / "[Compagnons]"
+      const colYou = pageWidth - marginX - 38;
+      const colThem = pageWidth - marginX;
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(...PDF_COLORS.textSoft);
+      doc.text('VOUS', colYou, y, {align:'right'});
+      doc.text(cmpNames.toUpperCase(), colThem, y, {align:'right'});
+      y += 5.5;
+      doc.setDrawColor(230,230,230);
+      doc.setLineWidth(0.2);
+      doc.line(marginX, y-3.5, pageWidth-marginX, y-3.5);
+
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(10);
+      recipe.ingredients.forEach(ing => {
+        ensureSpace(7);
+        doc.setTextColor(...PDF_COLORS.text);
+        const nameLines = doc.splitTextToSize(`•  ${ing.name}`, contentWidth-80);
+        doc.text(nameLines, marginX, y);
+
+        const myQty = formatQty(ing.base*portions, ing.unit);
+        const cmpRatios = selectedCompanionsForRecipe.map(ci => {
+          const c = companions[ci];
+          if(!c.poids || !c.taille) return 1.15;
+          const cmpKcal = calcTarget(parseFloat(c.poids), parseFloat(c.taille), c.genre);
+          return Math.round(cmpKcal/1550*100)/100;
+        });
+        const avgRatio = cmpRatios.reduce((a,b)=>a+b,0)/cmpRatios.length;
+        const cmpQty = formatQty(ing.base*portions*avgRatio, ing.unit);
+
+        doc.setFont('helvetica','bold');
+        doc.setTextColor(...PDF_COLORS.roseDark);
+        doc.text(myQty, colYou, y, {align:'right'});
+        doc.setTextColor(...PDF_COLORS.lav);
+        doc.text(cmpQty, colThem, y, {align:'right'});
+        doc.setFont('helvetica','normal');
+
+        y += Math.max(6.2, nameLines.length*5.2);
+      });
+    } else {
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(10.5);
+      recipe.ingredients.forEach(ing => {
+        ensureSpace(7);
+        doc.setTextColor(...PDF_COLORS.text);
+        doc.text(`•  ${ing.name}`, marginX, y);
+        doc.setTextColor(...PDF_COLORS.textMuted);
+        doc.text(formatQty(ing.base*portions, ing.unit), pageWidth-marginX, y, {align:'right'});
+        y += 6.2;
+      });
+    }
     y += 4;
   }
 
@@ -1651,6 +1698,10 @@ function exportWeekRecipesPDF(){
   if(!currentWeekData || !currentWeekData.days){ showToast('Semaine indisponible'); return; }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit:'mm', format:'a4' });
+  // Le livret complet reste neutre — il ne reprend pas la sélection de compagnon
+  // d'une recette individuellement ouverte, pour ne pas fausser tout le livret
+  const savedCompanionSelection = selectedCompanionsForRecipe;
+  selectedCompanionsForRecipe = [];
   let first = true;
   DAYS_ORDER.forEach(day => {
     const meals = currentWeekData.days[day] || [];
@@ -1662,6 +1713,7 @@ function exportWeekRecipesPDF(){
       first = false;
     });
   });
+  selectedCompanionsForRecipe = savedCompanionSelection;
   doc.save(`recettes-semaine-${currentWeek}.pdf`);
   showToast('Livret PDF téléchargé ✓');
 }
