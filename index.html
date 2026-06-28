@@ -2317,8 +2317,8 @@ let mealChecks    = gS('mealChecks', {});
 let courseChecks  = gS('courseChecks', {});
 let dessertToggles= gS('dessertToggles', {});
 let mealReplace   = gS('mealReplace2', {});
-let waterData     = gS('waterData', {});
-let pasData       = gS('pasData', {});
+// [dup removed] waterData
+// [dup removed] pasData
 let weeklyBilans  = gS('weeklyBilans', {});
 let bilanStep1Data= null, bilanMood = null;
 
@@ -2332,7 +2332,7 @@ let currentMealIdx= -1;
 let pendingReplaceIdx = -1;
 let currentPortion = 1;
 let selectedCmp = []; // indices compagnons sélectionnés pour la recette
-let companions = gS('companions', []); // partagé avec partie 1
+// [dup removed] companions // partagé avec partie 1
 
 // ══════════════════════════════════════════════════════
 //  NAV
@@ -3071,7 +3071,7 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
 function gS(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}}
 function sS(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
 
-let measures   = gS('measures', []);
+// [dup removed] measures
 let seances    = gS('seances', []);
 let favoris    = gS('favoris', []);
 
@@ -3940,7 +3940,7 @@ function shareSeance() {
 // ════════════════════════════════════════════════════
 //  PAS — ÉCRAN SPORT
 // ════════════════════════════════════════════════════
-let pasData    = gS('pasData', {});
+// [dup removed] pasData
 let pasObjectif = gS('pasObjectif', 8000);
 
 function todayKey() {
