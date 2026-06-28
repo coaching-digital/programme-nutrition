@@ -1868,8 +1868,8 @@ function renderMeals() {
     const replKey = 'w1-'+currentDay+'-'+idx;
     const repl = mealReplace[replKey];
     const bankR = repl ? BANK_RECIPES.find(r=>r.id===repl.id) : null;
-    const dm = bankR ? {...meal, name:bankR.name, kcal:bankR.kcal, p:bankR.p, g:bankR.g, l:bankR.l} : meal;
-    const display = scaleRatio && scaleRatio!==1 ? {...dm, kcal:Math.round(dm.kcal*scaleRatio)} : dm;
+    const dm = bankR ? Object.assign({}, meal, {name:bankR.name, kcal:bankR.kcal, p:bankR.p, g:bankR.g, l:bankR.l}) : meal;
+    const display = scaleRatio && scaleRatio!==1 ? Object.assign({}, dm, {kcal:Math.round(dm.kcal*scaleRatio)}) : dm;
     const checked = checks.includes(idx);
     const dotCls  = {pdj:'dot-pdj',col:'dot-col',dej:'dot-dej',din:'dot-din',des:'dot-des'}[meal.type]||'dot-dej';
     const tags = (meal.af&&!repl?'<span class="tag tag-af">🔥 Air fryer</span>':'') + (meal.transport&&!repl?`<span class="tag tag-transport">📦 ${meal.transport}</span>`:'');
@@ -2100,7 +2100,7 @@ function openRecipe(idx) {
 }
 function openBankRecipe(id) {
   const r=BANK_RECIPES.find(x=>x.id===id);if(!r)return;
-  currentMeal={...r, label:r.label+' · Banque de recettes'};currentMealIdx=-1;
+  currentMeal=Object.assign({}, r, {label:r.label+' · Banque de recettes'});currentMealIdx=-1;
   currentPortion=1; selectedCmp=[];
   document.getElementById('rm-type').textContent=r.label+' · Banque de recettes';
   document.getElementById('rm-title').textContent=r.name;
@@ -2332,7 +2332,7 @@ function renderMoodSelectorBilan(){
 function selectBilanMood(k){bilanMood=k;renderMoodSelectorBilan();}
 function saveBilan() {
   if(!bilanMood){showToast('Choisis une humeur');return;}
-  weeklyBilans[1]={date:new Date().toLocaleDateString('fr-FR'),...bilanStep1Data,mood:bilanMood,motivation:document.getElementById('bi-motivation').value,difficultes:document.getElementById('bi-difficultes').value,ressenti:document.getElementById('bi-ressenti').value};
+  weeklyBilans[1]=Object.assign({date:new Date().toLocaleDateString('fr-FR')}, bilanStep1Data, {mood:bilanMood,motivation:document.getElementById('bi-motivation').value,difficultes:document.getElementById('bi-difficultes').value,ressenti:document.getElementById('bi-ressenti').value});
   sS('weeklyBilans',weeklyBilans);
   closeBilanStep2();showToast('Bilan enregistré ✓ 🌸');
   showingBilan=true;
@@ -3400,7 +3400,7 @@ function setStartDate(v) {
 }
 function renderEventsList() {
   const el = document.getElementById('events-list'); if(!events.length){el.innerHTML='';return;}
-  el.innerHTML = [...events].sort((a,b)=>a.date.localeCompare(b.date)).map((e,i) => {
+  el.innerHTML = events.slice().sort((a,b)=>a.date.localeCompare(b.date)).map((e,i) => {
     const orig = events.findIndex(x=>x.date===e.date&&x.name===e.name);
     const p = e.date.split('-');
     const icon = e.impact ? ({pdj:'☀️',col:'🍎',dej:'🥗',din:'🌙',all:'🎉'}[e.impact]||'') : '';
@@ -3519,7 +3519,7 @@ function getDisplayDaysOrder() {
   const startWeekdayName = JS_WEEKDAY_TO_NAME[new Date(startDate).getDay()];
   const startIdx = DAYS_ORDER.indexOf(startWeekdayName);
   if(startIdx <= 0) return DAYS_ORDER;
-  return [...DAYS_ORDER.slice(startIdx), ...DAYS_ORDER.slice(0, startIdx)];
+  return DAYS_ORDER.slice(startIdx).concat(DAYS_ORDER.slice(0, startIdx));
 }
 
 function getDateForDay(weekNum, dayName) {
@@ -3592,12 +3592,12 @@ function loadRecipesRegles() {
 }
 
 function getAllReplaceableRecipes() {
-  return [
-    ...(RECIPE_BANK.plats||[]), ...(RECIPE_BANK.desserts||[]),
-    ...(RECIPES_SALADES.taboules||[]), ...(RECIPES_SALADES.salades||[]),
-    ...(RECIPES_REGLES.petitsDejeuners||[]), ...(RECIPES_REGLES.dejeuners||[]),
-    ...(RECIPES_REGLES.diners||[]), ...(RECIPES_REGLES.collations||[]), ...(RECIPES_REGLES.desserts||[])
-  ];
+  return [].concat(
+    RECIPE_BANK.plats||[], RECIPE_BANK.desserts||[],
+    RECIPES_SALADES.taboules||[], RECIPES_SALADES.salades||[],
+    RECIPES_REGLES.petitsDejeuners||[], RECIPES_REGLES.dejeuners||[],
+    RECIPES_REGLES.diners||[], RECIPES_REGLES.collations||[], RECIPES_REGLES.desserts||[]
+  );
 }
 
 // ══════════════════════════════════════════════════════
@@ -3650,19 +3650,17 @@ function gS(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}c
 function sS(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
 
 // [DEDUP] mealChecks already declared
-...
-// (var définie globalement) let weeklyBilans  = gS('weeklyBilans', {...
-// (var définie globalement) let bilanStep1Data= null, bilanSelectedMood = nu...
+// let weeklyBilans  = gS('weeklyBilans', {
+// let bilanStep1Data= null, bilanSelectedMood = nu
 
-// (var définie globalement) let currentWeek   = 1;...
-// (var définie globalement) let currentDay    = 'Lundi';...
-// (var définie globalement) let showingCourses= false;...
-// (var définie globalement) let showingBilan  = false;...
+// let currentWeek   = 1;
+// let currentDay    = 'Lundi';
+// let showingCourses= false;
+// let showingBilan  = false;
 // [DEDUP] showingBank already declared
-...
-// (var définie globalement) let currentMeal   = null;...
-// (var définie globalement) let currentMealIdx= -1;...
-// (var définie globalement) let pendingReplaceIdx = -1;...
+// let currentMeal   = null;
+// let currentMealIdx= -1;
+// let pendingReplaceIdx = -1;
 let currentPortion = 1;
 let selectedCmp = []; // indices compagnons sélectionnés pour la recette
 // [DEDUP] companions already declared
@@ -3842,8 +3840,8 @@ function renderMeals() {
     const replKey = 'w1-'+currentDay+'-'+idx;
     const repl = mealReplacements[replKey];
     const bankR = repl ? BANK_RECIPES.find(r=>r.id===repl.id) : null;
-    const dm = bankR ? {...meal, name:bankR.name, kcal:bankR.kcal, p:bankR.p, g:bankR.g, l:bankR.l} : meal;
-    const display = scaleRatio && scaleRatio!==1 ? {...dm, kcal:Math.round(dm.kcal*scaleRatio)} : dm;
+    const dm = bankR ? Object.assign({}, meal, {name:bankR.name, kcal:bankR.kcal, p:bankR.p, g:bankR.g, l:bankR.l}) : meal;
+    const display = scaleRatio && scaleRatio!==1 ? Object.assign({}, dm, {kcal:Math.round(dm.kcal*scaleRatio)}) : dm;
     const checked = checks.includes(idx);
     const dotCls  = {pdj:'dot-pdj',col:'dot-col',dej:'dot-dej',din:'dot-din',des:'dot-des'}[meal.type]||'dot-dej';
     const tags = (meal.af&&!repl?'<span class="tag tag-af">🔥 Air fryer</span>':'') + (meal.transport&&!repl?`<span class="tag tag-transport">📦 ${meal.transport}</span>`:'');
@@ -4074,7 +4072,7 @@ function openRecipe(idx) {
 }
 function openBankRecipe(id) {
   const r=BANK_RECIPES.find(x=>x.id===id);if(!r)return;
-  currentMeal={...r, label:r.label+' · Banque de recettes'};currentMealIdx=-1;
+  currentMeal=Object.assign({}, r, {label:r.label+' · Banque de recettes'});currentMealIdx=-1;
   currentPortion=1; selectedCmp=[];
   document.getElementById('rm-type').textContent=r.label+' · Banque de recettes';
   document.getElementById('rm-title').textContent=r.name;
@@ -4307,7 +4305,7 @@ function renderMoodSelectorBilan(){
 function selectBilanMood(k){bilanMood=k;renderMoodSelectorBilan();}
 function saveBilan() {
   if(!bilanSelectedMood){showToast('Choisis une humeur');return;}
-  weeklyBilans[1]={date:new Date().toLocaleDateString('fr-FR'),...bilanStep1Data,mood:bilanMood,motivation:document.getElementById('bi-motivation').value,difficultes:document.getElementById('bi-difficultes').value,ressenti:document.getElementById('bi-ressenti').value};
+  weeklyBilans[1]=Object.assign({date:new Date().toLocaleDateString('fr-FR')}, bilanStep1Data, {mood:bilanMood,motivation:document.getElementById('bi-motivation').value,difficultes:document.getElementById('bi-difficultes').value,ressenti:document.getElementById('bi-ressenti').value});
   sS('weeklyBilans',weeklyBilans);
   closeBilanStep2();showToast('Bilan enregistré ✓ 🌸');
   showingBilan=true;
@@ -4734,7 +4732,7 @@ function renderSuivi() {
   // Sparkline poids — ligne descend si poids baisse (perte = bonne nouvelle)
   if(measures.length >= 2) {
     const vals = measures.map(m => parseFloat(m.poids));
-    const mn = Math.min(...vals) - 0.5, mx = Math.max(...vals) + 0.5, rg = mx - mn || 1;
+    const mn = Math.min.apply(null, vals) - 0.5, mx = Math.max.apply(null, vals) + 0.5, rg = mx - mn || 1;
     const pts = vals.map((v,i) => {
       const x = (i / (vals.length-1)) * 276 + 2;
       // Inversion : valeur haute = y petit (haut du SVG) → perte = ligne qui descend
@@ -4773,7 +4771,7 @@ function renderSuivi() {
     // Mini sparkline mensurations
     // Même logique : valeur haute = y petit (haut) → perte de cm = ligne qui descend
     const sVals = withVal.map(m => parseFloat(m[f.key]));
-    const sMn = Math.min(...sVals)-0.2, sMx = Math.max(...sVals)+0.2, sRg = sMx-sMn||1;
+    const sMn = Math.min.apply(null, sVals)-0.2, sMx = Math.max.apply(null, sVals)+0.2, sRg = sMx-sMn||1;
     const sPts = sVals.map((v,i) => {
       const x = sVals.length>1 ? (i/(sVals.length-1))*76+2 : 40;
       const y = 2 + ((v - sMn) / sRg) * 14;
@@ -4809,7 +4807,7 @@ function renderSuivi() {
     histList.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-soft);font-size:13px">Aucune mesure enregistrée</div>';
     return;
   }
-  histList.innerHTML = [...measures].reverse().map((m,i) => {
+  histList.innerHTML = measures.slice().reverse().map((m,i) => {
     const prev2 = measures[measures.length-2-i];
     const diff = prev2?.poids ? (parseFloat(m.poids)-parseFloat(prev2.poids)).toFixed(1) : null;
     return `<div class="history-item">
@@ -4844,7 +4842,7 @@ function renderHistoriqueSeances() {
     {date:'Lundi 23 juin', nom:'Upper body — Épaules + Bras', kcal:220, duree:48, eval:'bien',
      tags:['epaules','bras'], note:''},
   ];
-  const all = [...seances.map(s=>({...s, fromStorage:true})), ...FICTIVES].slice(0,6);
+  const all = seances.map(s=>(Object.assign({},s,{fromStorage:true}))).concat(FICTIVES).slice(0,6);
 
   if(!all.length) {
     el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text-soft);font-size:13px">Aucune séance enregistrée</div>';
@@ -5290,7 +5288,7 @@ function renderPasSport() {
     days.push({key, label, val, isToday});
   }
 
-  const maxVal = Math.max(...days.map(d=>d.val), pasObjectif);
+  const maxVal = Math.max.apply(null, days.map(d=>d.val), pasObjectif);
   const grid = document.getElementById('pas-grid-sport');
   if(!grid) return;
   grid.innerHTML = days.map(d => {
@@ -5343,7 +5341,7 @@ function getSeanceForIdx(idx) {
         {name:'French Press', type:'muscu', series:[{poids:14,reps:12,done:true},{poids:16,reps:10,done:true},{poids:16,reps:8,done:true}]},
       ]},
   ];
-  return [...seances, ...FICTIVES][idx];
+  return seances.concat(FICTIVES)[idx];
 }
 
 function shareSeanceDetail(idx) {
@@ -5514,7 +5512,7 @@ function renderSuivi() {
   // Sparkline poids — ligne descend si poids baisse (perte = bonne nouvelle)
   if(measures.length >= 2) {
     const vals = measures.map(m => parseFloat(m.poids));
-    const mn = Math.min(...vals) - 0.5, mx = Math.max(...vals) + 0.5, rg = mx - mn || 1;
+    const mn = Math.min.apply(null, vals) - 0.5, mx = Math.max.apply(null, vals) + 0.5, rg = mx - mn || 1;
     const pts = vals.map((v,i) => {
       const x = (i / (vals.length-1)) * 276 + 2;
       // Inversion : valeur haute = y petit (haut du SVG) → perte = ligne qui descend
@@ -5553,7 +5551,7 @@ function renderSuivi() {
     // Mini sparkline mensurations
     // Même logique : valeur haute = y petit (haut) → perte de cm = ligne qui descend
     const sVals = withVal.map(m => parseFloat(m[f.key]));
-    const sMn = Math.min(...sVals)-0.2, sMx = Math.max(...sVals)+0.2, sRg = sMx-sMn||1;
+    const sMn = Math.min.apply(null, sVals)-0.2, sMx = Math.max.apply(null, sVals)+0.2, sRg = sMx-sMn||1;
     const sPts = sVals.map((v,i) => {
       const x = sVals.length>1 ? (i/(sVals.length-1))*76+2 : 40;
       const y = 2 + ((v - sMn) / sRg) * 14;
@@ -5589,7 +5587,7 @@ function renderSuivi() {
     histList.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-soft);font-size:13px">Aucune mesure enregistrée</div>';
     return;
   }
-  histList.innerHTML = [...measures].reverse().map((m,i) => {
+  histList.innerHTML = measures.slice().reverse().map((m,i) => {
     const prev2 = measures[measures.length-2-i];
     const diff = prev2?.poids ? (parseFloat(m.poids)-parseFloat(prev2.poids)).toFixed(1) : null;
     return `<div class="history-item">
@@ -5624,7 +5622,7 @@ function renderHistoriqueSeances() {
     {date:'Lundi 23 juin', nom:'Upper body — Épaules + Bras', kcal:220, duree:48, eval:'bien',
      tags:['epaules','bras'], note:''},
   ];
-  const all = [...seances.map(s=>({...s, fromStorage:true})), ...FICTIVES].slice(0,6);
+  const all = seances.map(s=>(Object.assign({},s,{fromStorage:true}))).concat(FICTIVES).slice(0,6);
 
   if(!all.length) {
     el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text-soft);font-size:13px">Aucune séance enregistrée</div>';
@@ -6067,7 +6065,7 @@ function renderPasSport() {
     days.push({key, label, val, isToday});
   }
 
-  const maxVal = Math.max(...days.map(d=>d.val), pasObjectif);
+  const maxVal = Math.max.apply(null, days.map(d=>d.val), pasObjectif);
   const grid = document.getElementById('pas-grid-sport');
   if(!grid) return;
   grid.innerHTML = days.map(d => {
@@ -6120,7 +6118,7 @@ function getSeanceForIdx(idx) {
         {name:'French Press', type:'muscu', series:[{poids:14,reps:12,done:true},{poids:16,reps:10,done:true},{poids:16,reps:8,done:true}]},
       ]},
   ];
-  return [...seances, ...FICTIVES][idx];
+  return seances.concat(FICTIVES)[idx];
 }
 
 function shareSeanceDetail(idx) {
