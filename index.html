@@ -2431,33 +2431,40 @@ function updatePasSemaine() {
 //  PROGRAMME — LISTE 12 SEMAINES
 // ══════════════════════════════════════════════════════
 function renderProg() {
-  const list = document.getElementById('weeks-list');
+  var list = document.getElementById('weeks-list');
+  if(!list) return;
   list.innerHTML = '';
-  const WEEKS_META = {
+  var WEEKS_INFO = {
     1:{subtitle:'Lancer en douceur', avail:true},
-    2:{subtitle:'Prendre le rythme'},
-    3:{subtitle:'Confirmer les habitudes'},
-    4:{subtitle:'Accélérer'},
-    12:{subtitle:'La ligne d\'arrivée 🏆'},
+    2:{subtitle:'Prendre le rythme', avail:false},
+    3:{subtitle:'Confirmer les habitudes', avail:false},
+    4:{subtitle:'Accélérer', avail:false},
+    5:{avail:false}, 6:{avail:false}, 7:{avail:false},
+    8:{avail:false}, 9:{avail:false}, 10:{avail:false},
+    11:{avail:false},
+    12:{subtitle:'La ligne d'arrivée', avail:false}
   };
-  for(let w=1; w<=12; w++) {
-    const meta = WEEKS_META[w]||{};
-    const avail = meta.avail||false;
-    const row = document.createElement('div');
-    row.className = 'week-row' + (avail?'':' locked');
-    const badgeCls = avail ? 'wk-active' : (w===2?'wk-soon':'wk-locked');
-    const pillCls  = avail ? 'pill-active': (w===2?'pill-soon':'pill-locked');
-    const pillTxt  = avail ? 'En cours'   : (w===2?'Bientôt':'À venir');
-    const subtitle = meta.subtitle ? ` — ${meta.subtitle}` : '';
-    row.innerHTML = `
-      <div class="wk-badge ${badgeCls}">${w}</div>
-      <div class="wk-info">
-        <div class="wk-title">Semaine ${w}${subtitle}</div>
-        <div class="wk-sub">${avail?'1 550 kcal · 7 jours · Air fryer inclus':'Disponible prochainement'}</div>
-        ${w===3?'<div class="wk-cycle" style="color:var(--rose)">🩷 Semaine règles</div>':''}
-      </div>
-      <span class="wk-pill ${pillCls}">${pillTxt}</span>`;
-    if(avail) row.onclick = () => openWeek(w);
+  for(var w=1; w<=12; w++) {
+    var meta   = WEEKS_INFO[w] || {};
+    var avail  = meta.avail || false;
+    var row    = document.createElement('div');
+    row.className = 'week-row' + (avail ? '' : ' locked');
+    var badgeCls = avail ? 'wk-active' : (w===2 ? 'wk-soon' : 'wk-locked');
+    var pillCls  = avail ? 'pill-active' : (w===2 ? 'pill-soon' : 'pill-locked');
+    var pillTxt  = avail ? 'En cours' : (w===2 ? 'Bientôt' : 'À venir');
+    var subtitle = meta.subtitle ? ' — ' + meta.subtitle : '';
+    var cycleTag = w===3 ? '<div class="wk-cycle" style="color:var(--rose)">🩷 Semaine règles</div>' : '';
+    var subText  = avail ? '1 550 kcal · 7 jours · Air fryer inclus' : 'Disponible prochainement';
+    var dates    = getWeekDates(w);
+    if(dates) subText = dates.start + ' → ' + dates.end;
+    row.innerHTML = '<div class="wk-badge ' + badgeCls + '">' + w + '</div>' +
+      '<div class="wk-info">' +
+        '<div class="wk-title">Semaine ' + w + subtitle + '</div>' +
+        '<div class="wk-sub">' + subText + '</div>' +
+        cycleTag +
+      '</div>' +
+      '<span class="wk-pill ' + pillCls + '">' + pillTxt + '</span>';
+    if(avail) (function(wNum){ row.onclick = function(){ openWeek(wNum); }; })(w);
     list.appendChild(row);
   }
 }
