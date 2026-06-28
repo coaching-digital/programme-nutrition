@@ -1038,12 +1038,182 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg);overflo
      SCREEN ACCUEIL (placeholder)
      ═══════════════════════════════════════════ -->
 <div class="screen active" id="screen-home">
-  <div style="padding:80px 18px 20px;text-align:center">
-    <div style="font-size:48px;margin-bottom:16px">🏠</div>
-    <div style="font-size:20px;font-weight:900;color:var(--text);margin-bottom:8px">Accueil</div>
-    <div style="font-size:14px;color:var(--text-soft);margin-bottom:24px">← Déjà développé en Partie 1</div>
-    <button onclick="goScreen('screen-prog')" style="background:var(--rose);color:#fff;border:none;padding:14px 28px;border-radius:var(--radius);font-size:14px;font-weight:800;font-family:var(--font);cursor:pointer">Voir le Programme 🥗</button>
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-sub" id="home-greeting">Bonjour Pauline 🌸</div>
+      <div class="page-title" id="home-date">Vendredi 27 juin</div>
+    </div>
+    <div class="page-avatar">🧘</div>
   </div>
+
+  <!-- Mood -->
+  <div class="mood-card">
+    <div class="mood-title">Comment tu te sens aujourd'hui ?</div>
+    <div class="mood-row">
+      <button class="mood-btn" onclick="selectMoodHome('bad')" id="mb-bad">
+        <div class="mood-emoji-wrap" id="mw-bad">😞</div>
+        <div class="mood-txt">Difficile</div>
+      </button>
+      <button class="mood-btn" onclick="selectMoodHome('meh')" id="mb-meh">
+        <div class="mood-emoji-wrap" id="mw-meh">😕</div>
+        <div class="mood-txt">Moyen</div>
+      </button>
+      <button class="mood-btn" onclick="selectMoodHome('ok')" id="mb-ok">
+        <div class="mood-emoji-wrap" id="mw-ok">🙂</div>
+        <div class="mood-txt">Bien</div>
+      </button>
+      <button class="mood-btn" onclick="selectMoodHome('good')" id="mb-good">
+        <div class="mood-emoji-wrap" id="mw-good">😄</div>
+        <div class="mood-txt">Super</div>
+      </button>
+      <button class="mood-btn" onclick="selectMoodHome('great')" id="mb-great">
+        <div class="mood-emoji-wrap" id="mw-great">🤩</div>
+        <div class="mood-txt">Top !</div>
+      </button>
+    </div>
+  </div>
+
+  <!-- Hero Card -->
+  <div class="hero-card">
+    <div class="hero-top">
+      <div class="hero-text">
+        <div class="hero-label">Ma progression — 12 semaines</div>
+        <div class="hero-val" id="hero-lost">3.5 kg perdus</div>
+        <div class="hero-sub">Objectif : −15 kg 💪</div>
+      </div>
+      <div class="hero-ring">
+        <svg width="66" height="66" viewBox="0 0 66 66">
+          <circle class="ring-bg" cx="33" cy="33" r="28"/>
+          <circle class="ring-fill" id="ring-fill" cx="33" cy="33" r="28"
+            stroke-dasharray="175.9" stroke-dashoffset="175.9"/>
+        </svg>
+        <div class="ring-center" id="ring-pct">23%</div>
+      </div>
+    </div>
+    <div class="hero-bar-wrap">
+      <div class="hero-bar-fill" id="hero-bar" style="width:23%"></div>
+    </div>
+  </div>
+
+  <!-- Stats 2×2 -->
+  <div class="stat-grid">
+    <div class="stat-card vl" onclick="goScreen('screen-prog')">
+      <div class="stat-label">Programme</div>
+      <div class="stat-val">Sem. 1</div>
+      <div class="stat-sub">Jour 5 en cours</div>
+    </div>
+    <div class="stat-card te">
+      <div class="stat-label">Streak 🔥</div>
+      <div class="stat-val" id="stat-streak">5 j.</div>
+      <div class="stat-sub">consécutifs</div>
+    </div>
+    <div class="stat-card sg">
+      <div class="stat-label">Repas</div>
+      <div class="stat-val" id="stat-repas">3/5</div>
+      <div class="stat-sub">cochés aujourd'hui</div>
+    </div>
+    <div class="stat-card ja">
+      <div class="stat-label">Badge du jour</div>
+      <div class="stat-val">🏆</div>
+      <div class="stat-sub">5 jours de suite</div>
+    </div>
+  </div>
+
+  <!-- Bubbles -->
+  <div class="bubble vl" onclick="goScreen('screen-prog')">
+    <div class="bubble-icon">📅</div>
+    <div class="bubble-body">
+      <div class="bubble-name">Menus de la semaine</div>
+      <div class="bubble-sub">Semaine 1 · Vendredi</div>
+    </div>
+    <div class="bubble-arrow">›</div>
+  </div>
+
+  <div class="bubble te" onclick="goScreen('screen-sport')">
+    <div class="bubble-icon">💪</div>
+    <div class="bubble-body">
+      <div class="bubble-name">Mon sport</div>
+      <div class="bubble-sub">2 séances cette semaine</div>
+    </div>
+    <div class="bubble-arrow">›</div>
+  </div>
+
+  <div class="bubble sg" onclick="goScreen('screen-suivi')">
+    <div class="bubble-icon">📏</div>
+    <div class="bubble-body">
+      <div class="bubble-name">Mon suivi corporel</div>
+      <div class="bubble-sub">71.5 kg · voir l'évolution</div>
+    </div>
+    <div class="bubble-arrow">›</div>
+  </div>
+
+  <!-- Eau + Pas -->
+  <div class="eau-pas-card">
+    <div class="eau-block">
+      <div class="ep-label">💧 Eau</div>
+      <div class="ep-val-row">
+        <span class="ep-big" id="eau-count">6</span>
+        <span class="ep-unit">/ 8 verres · 1.5 L</span>
+      </div>
+      <div class="glasses-row" id="water-glasses-home"></div>
+    </div>
+    <div class="pas-block">
+      <div class="ep-label">🚶‍♀️ Mes pas</div>
+      <div class="pas-input-row">
+        <input class="pas-field" id="pas-home" placeholder="0" inputmode="numeric" type="number">
+        <button class="pas-btn" onclick="savePasHome()">OK ✓</button>
+      </div>
+      <div style="font-size:9px;color:var(--text-soft);font-weight:600;margin-top:5px" id="pas-sub-home">pas aujourd'hui</div>
+    </div>
+  </div>
+
+  <!-- Calendrier -->
+  <div class="section-row" style="margin-top:4px">
+    <span class="section-title">📅 Mon calendrier</span>
+    <button class="section-link" onclick="toggleStartPicker()">Démarrage</button>
+  </div>
+  <div class="calendar-wrap">
+    <div class="cal-header">
+      <button class="cal-nav" onclick="prevMonth()">‹</button>
+      <span class="cal-month" id="cal-month-label"></span>
+      <button class="cal-nav" onclick="nextMonth()">›</button>
+    </div>
+    <div class="cal-days-header">
+      <span class="cal-day-name">L</span><span class="cal-day-name">M</span>
+      <span class="cal-day-name">M</span><span class="cal-day-name">J</span>
+      <span class="cal-day-name">V</span><span class="cal-day-name">S</span>
+      <span class="cal-day-name">D</span>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+    <div id="start-picker" style="display:none;margin-top:10px;padding-top:10px;border-top:1.5px solid var(--border)">
+      <div style="font-size:12px;font-weight:700;color:var(--text-mid);margin-bottom:6px">Date de démarrage du programme :</div>
+      <input type="date" id="start-date-input" class="input-field" style="width:100%" onchange="setStartDate(this.value)">
+    </div>
+    <div class="event-form">
+      <input class="event-input" id="event-input" placeholder="Ajouter un événement..." onkeydown="if(event.key==='Enter')addEvent()">
+      <button class="event-btn" onclick="addEvent()">+</button>
+    </div>
+    <div class="events-list" id="events-list"></div>
+  </div>
+
+  <!-- Compagnons -->
+  <div class="section-row">
+    <span class="section-title">👥 Mes compagnons</span>
+    <button class="section-link" onclick="openCmpModal(-1)">Ajouter</button>
+  </div>
+  <div class="companions-section">
+    <div class="companions-scroll" id="companions-scroll"></div>
+  </div>
+
+  <!-- Cycle -->
+  <div class="section-row">
+    <span class="section-title">🌙 Mon cycle</span>
+    <button class="section-link" onclick="openCycleModal()">Configurer</button>
+  </div>
+  <div id="cycle-home-card"></div>
+
 </div>
 
 <!-- ═══════════════════════════════════════════
@@ -1069,10 +1239,108 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg);overflo
      SCREEN SPORT (placeholder)
      ═══════════════════════════════════════════ -->
 <div class="screen" id="screen-sport">
-  <div style="padding:80px 18px 20px;text-align:center">
-    <div style="font-size:48px;margin-bottom:16px">💪</div>
-    <div style="font-size:20px;font-weight:900;color:var(--text)">Sport</div>
-    <div style="font-size:14px;color:var(--text-soft);margin-top:8px">→ Partie suivante</div>
+  <div class="page-header">
+    <div class="page-sub">Cette semaine</div>
+    <div class="page-title">Mon sport 💪</div>
+  </div>
+
+  <!-- Hero card -->
+  <div class="sport-hero">
+    <div class="sh-top">
+      <div>
+        <div style="font-size:10px;font-weight:800;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Semaine 1</div>
+        <div style="font-size:20px;font-weight:900;color:#fff">En forme Pauline ! 🔥</div>
+      </div>
+    </div>
+    <div class="sh-stats">
+      <div class="sh-stat"><div class="sh-val" id="sport-nb-seances">2</div><div class="sh-lbl">Séances</div></div>
+      <div class="sh-stat"><div class="sh-val" id="sport-kcal">480</div><div class="sh-lbl">kcal brûlées</div></div>
+      <div class="sh-stat"><div class="sh-val" id="sport-streak">5 🔥</div><div class="sh-lbl">Jours actifs</div></div>
+    </div>
+    <div class="sh-dots" style="margin-top:12px">
+      <div class="sh-dot done" title="Lundi">✓</div>
+      <div class="sh-dot" title="Mardi">M</div>
+      <div class="sh-dot done" title="Mercredi">✓</div>
+      <div class="sh-dot" title="Jeudi">J</div>
+      <div class="sh-dot" title="Vendredi" style="border-color:rgba(255,255,255,.5)">V</div>
+      <div class="sh-dot" title="Samedi">S</div>
+      <div class="sh-dot" title="Dimanche">D</div>
+    </div>
+  </div>
+
+  <!-- Boutons principaux -->
+  <div class="sport-btns">
+    <button class="sport-btn primary" onclick="openLogSeance()">
+      <span class="sport-btn-icon">▶️</span>
+      Démarrer une séance
+    </button>
+    <button class="sport-btn secondary" onclick="openBibliotheque()">
+      <span class="sport-btn-icon">📚</span>
+      Bibliothèque
+    </button>
+  </div>
+
+  <!-- Donut double anneau -->
+  <div class="donut-wrap">
+    <div class="donut-svg-wrap">
+      <svg width="80" height="80" viewBox="0 0 80 80">
+        <!-- Anneau extérieur rose = séances -->
+        <circle cx="40" cy="40" r="34" fill="none" stroke="var(--rose-light)" stroke-width="8"/>
+        <circle cx="40" cy="40" r="34" fill="none" stroke="var(--rose)" stroke-width="8"
+          stroke-dasharray="213.6" stroke-dashoffset="149.5"
+          stroke-linecap="round" transform="rotate(-90 40 40)"/>
+        <!-- Anneau intérieur sauge = kcal -->
+        <circle cx="40" cy="40" r="24" fill="none" stroke="var(--sauge-light)" stroke-width="7"/>
+        <circle cx="40" cy="40" r="24" fill="none" stroke="var(--sauge)" stroke-width="7"
+          stroke-dasharray="150.8" stroke-dashoffset="90.5"
+          stroke-linecap="round" transform="rotate(-90 40 40)"/>
+      </svg>
+      <div class="donut-center"><div class="donut-center-val">2/3</div><div class="donut-center-lbl">séances</div></div>
+    </div>
+    <div class="donut-legend">
+      <div class="donut-legend-item">
+        <div class="donut-dot" style="background:var(--rose)"></div>
+        <div>
+          <div class="donut-legend-val">2 <span style="font-size:11px;font-weight:600;color:var(--text-soft)">/ 3 objectif</span></div>
+          <div class="donut-legend-lbl">Séances cette semaine</div>
+        </div>
+      </div>
+      <div class="donut-legend-item">
+        <div class="donut-dot" style="background:var(--sauge)"></div>
+        <div>
+          <div class="donut-legend-val">480 <span style="font-size:11px;font-weight:600;color:var(--text-soft)">/ 800 kcal</span></div>
+          <div class="donut-legend-lbl">Calories brûlées</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Historique des séances -->
+  <div class="section-row"><span class="section-title">Mes séances</span></div>
+  <div id="historique-seances"></div>
+
+  <!-- Mes pas -->
+  <div class="section-row" style="margin-top:6px"><span class="section-title">🚶‍♀️ Mes pas</span><span style="font-size:11px;font-weight:600;color:var(--text-soft)" id="pas-total-semaine">0 pas cette semaine</span></div>
+  <div style="margin:0 18px 20px;background:var(--white);border-radius:var(--radius);border:1.5px solid var(--border);padding:14px 16px;box-shadow:var(--shadow-sm)">
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:12px" id="pas-grid-sport"></div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <div style="flex:1">
+        <div style="font-size:9px;font-weight:800;color:var(--text-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Ajouter les pas d'aujourd'hui</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="pas-sport-input" type="number" inputmode="numeric" placeholder="ex: 8 500"
+            style="flex:1;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:8px 10px;font-size:14px;font-weight:800;color:var(--text);font-family:var(--font);outline:none">
+          <button onclick="savePasSport()" style="background:var(--terra);color:#fff;border:none;border-radius:10px;padding:9px 14px;font-size:12px;font-weight:800;font-family:var(--font);cursor:pointer;white-space:nowrap">Enregistrer ✓</button>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:11px;font-weight:600;color:var(--text-soft)">Objectif journalier</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="changePasObjectif(-1000)" style="width:26px;height:26px;border-radius:8px;border:none;background:var(--terra-light);color:var(--terra);font-size:14px;font-weight:800;cursor:pointer;font-family:var(--font)">−</button>
+        <span style="font-size:13px;font-weight:900;color:var(--text)" id="pas-objectif-lbl">8 000 pas</span>
+        <button onclick="changePasObjectif(1000)" style="width:26px;height:26px;border-radius:8px;border:none;background:var(--terra-light);color:var(--terra);font-size:14px;font-weight:800;cursor:pointer;font-family:var(--font)">+</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1080,10 +1348,83 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg);overflo
      SCREEN SUIVI (placeholder)
      ═══════════════════════════════════════════ -->
 <div class="screen" id="screen-suivi">
-  <div style="padding:80px 18px 20px;text-align:center">
-    <div style="font-size:48px;margin-bottom:16px">📏</div>
-    <div style="font-size:20px;font-weight:900;color:var(--text)">Suivi</div>
-    <div style="font-size:14px;color:var(--text-soft);margin-top:8px">→ Partie suivante</div>
+  <div class="page-header">
+    <div class="page-sub">Mon évolution</div>
+    <div class="page-title">Suivi corporel 📏</div>
+    <div class="page-desc">Pesez-vous le matin à jeun, dans les mêmes conditions.</div>
+  </div>
+
+  <!-- Poids hero -->
+  <div class="poids-card">
+    <div class="pc-row">
+      <div class="pc-left">
+        <div class="pc-label">Poids actuel</div>
+        <div class="pc-val" id="pc-val">— kg</div>
+        <div class="pc-sub">Pesée ce matin à jeun</div>
+        <div class="pc-delta" id="pc-delta" style="display:none">
+          <span style="font-size:13px" id="pc-delta-arrow">↓</span>
+          <span class="pc-delta-val" id="pc-delta-val"></span>
+        </div>
+      </div>
+      <div class="pc-right">
+        <div class="pc-obj-label">Objectif</div>
+        <div class="pc-obj-val">60 kg</div>
+        <div class="pc-obj-sub" id="pc-reste">−15 kg restants</div>
+      </div>
+    </div>
+    <div class="sparkline-wrap">
+      <div class="sparkline-header">
+        <div class="sparkline-title">Évolution du poids</div>
+        <div class="sparkline-range" id="sparkline-nb">— mesures</div>
+      </div>
+      <svg id="sparkline-svg" width="100%" height="48" viewBox="0 0 280 48" preserveAspectRatio="none">
+        <text x="140" y="28" text-anchor="middle" font-size="11" fill="rgba(255,255,255,.4)" font-family="Nunito">Ajoutez votre première mesure</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Saisie -->
+  <div class="saisie-card">
+    <div class="saisie-title">➕ Nouvelle mesure</div>
+    <div class="saisie-grid">
+      <div class="saisie-field">
+        <div class="saisie-label">Poids</div>
+        <div class="saisie-input-row"><input class="saisie-input" id="inp-poids" placeholder="75.0" type="number" step="0.1" inputmode="decimal"><span class="saisie-unit">kg</span></div>
+      </div>
+      <div class="saisie-field">
+        <div class="saisie-label">Taille</div>
+        <div class="saisie-input-row"><input class="saisie-input" id="inp-taille" placeholder="80" type="number" step="0.5" inputmode="decimal"><span class="saisie-unit">cm</span></div>
+      </div>
+      <div class="saisie-field">
+        <div class="saisie-label">Hanches</div>
+        <div class="saisie-input-row"><input class="saisie-input" id="inp-hanches" placeholder="100" type="number" step="0.5" inputmode="decimal"><span class="saisie-unit">cm</span></div>
+      </div>
+      <div class="saisie-field">
+        <div class="saisie-label">Cuisses</div>
+        <div class="saisie-input-row"><input class="saisie-input" id="inp-cuisses" placeholder="60" type="number" step="0.5" inputmode="decimal"><span class="saisie-unit">cm</span></div>
+      </div>
+      <div class="saisie-field">
+        <div class="saisie-label">Bras</div>
+        <div class="saisie-input-row"><input class="saisie-input" id="inp-bras" placeholder="28" type="number" step="0.5" inputmode="decimal"><span class="saisie-unit">cm</span></div>
+      </div>
+      <div class="saisie-field">
+        <div class="saisie-label">Poitrine</div>
+        <div class="saisie-input-row"><input class="saisie-input" id="inp-poitrine" placeholder="90" type="number" step="0.5" inputmode="decimal"><span class="saisie-unit">cm</span></div>
+      </div>
+    </div>
+    <button class="btn-save" onclick="saveMeasure()">Enregistrer ✓</button>
+  </div>
+
+  <!-- Mensurations cards -->
+  <div class="section-row"><span class="section-title">Mes mensurations</span><span style="font-size:11px;font-weight:600;color:var(--text-soft)">Début → Actuel</span></div>
+  <div class="mens-grid" id="mens-grid">
+    <div style="grid-column:span 2;text-align:center;padding:20px;color:var(--text-soft);font-size:13px">Ajoutez des mesures pour voir l'évolution</div>
+  </div>
+
+  <!-- Historique -->
+  <div class="section-row"><span class="section-title">Historique</span></div>
+  <div class="history-list" id="history-list">
+    <div style="text-align:center;padding:20px;color:var(--text-soft);font-size:13px">Aucune mesure enregistrée</div>
   </div>
 </div>
 
@@ -2077,8 +2418,7 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
 // ══════════════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════════════
-renderProg();
-goScreen('screen-prog');
+// init handled globally;
 </script>
 <!-- ═══ MODAL — PICKER EXERCICE MUSCU ═══ -->
 <div class="modal-overlay" id="exo-picker-modal">
@@ -2728,7 +3068,8 @@ goScreen('screen-prog');
 <script>
 // ── CONSTANTES ────────────────────────────────────────────────────────────────
 const GOAL_LOSS = 15, START_WEIGHT = 75;
-const MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+// [DEDUP] MONTHS_FR already declared
+
 const DAYS_FR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
 const MONTHS_LONG = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
 let calYear = new Date().getFullYear(), calMonth = new Date().getMonth();
@@ -2741,8 +3082,10 @@ function gS(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}c
 function sS(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
 
 let measures    = gS('measures', []);
-let waterData   = gS('waterData', {});
-let companions  = gS('companions', []);
+// [DEDUP] waterData already declared
+
+// [DEDUP] companions already declared
+
 let events      = gS('calEvents', []);
 let startDate   = gS('startDate', null);
 let pasData     = gS('pasData', {});
@@ -2752,7 +3095,8 @@ let seances          = gS('seances', []);
 let favoris          = gS('favoris', []);
 let weeklyBilans     = gS('weeklyBilans', {});
 let mealReplacements = gS('mealReplacements', {});
-let dessertToggles   = gS('dessertToggles', {});
+// [DEDUP] dessertToggles already declared
+
 let reglesAdaptations    = gS('reglesAdaptations', {});
 let reglesPromptAnswered = gS('reglesPromptAnswered', {});
 let bilanStep1Data    = null;
@@ -3206,20 +3550,8 @@ function loadWeek(weekNum, callback) {
     .catch(err => { console.error('Failed to load week', weekNum, err); callback(null); });
 }
 
-const WEEKS_META = {
-  1:{title:"Semaine 1",subtitle:"Lancer en douceur",available:true},
-  2:{title:"Semaine 2",subtitle:"Prendre le rythme",available:false},
-  3:{title:"Semaine 3",subtitle:"Confirmer les habitudes",available:false},
-  4:{title:"Semaine 4",subtitle:"Accélérer",available:false},
-  5:{title:"Semaine 5",available:false},
-  6:{title:"Semaine 6",available:false},
-  7:{title:"Semaine 7",available:false},
-  8:{title:"Semaine 8",available:false},
-  9:{title:"Semaine 9",available:false},
-  10:{title:"Semaine 10",available:false},
-  11:{title:"Semaine 11",available:false},
-  12:{title:"Semaine 12",subtitle:"La ligne d'arrivée 🏆",available:false},
-};
+// [DEDUP] WEEKS_META already declared
+
 
 // ══════════════════════════════════════════════════════
 //  RECETTES (fetch depuis GitHub/Vercel)
@@ -3300,141 +3632,25 @@ function checkWeeklyReviewPrompt() {
 // ══════════════════════════════════════════════════════
 //  DONNÉES FICTIVES — semaine de test complète
 // ══════════════════════════════════════════════════════
-const WEEK_DATA = {
-  days: {
-    Lundi: [
-      {id:'pdj-lun', type:'pdj', label:'Petit-déjeuner', name:'Porridge banane-cannelle', kcal:320, p:12, g:54, l:7, desc:'Flocons d\'avoine onctueux avec lait végétal, banane et cannelle.'},
-      {id:'col-lun-m', type:'col', label:'Collation matin', name:'Yaourt grec + myrtilles', kcal:140, p:10, g:16, l:3},
-      {id:'dej-lun', type:'dej', label:'Déjeuner', name:'Poulet rôti aux herbes & légumes vapeur', kcal:480, p:42, g:35, l:12, af:true},
-      {id:'des-midi-lun', type:'des', label:'Dessert midi', name:'Compote pomme-cannelle maison', kcal:90, p:1, g:22, l:0},
-      {id:'col-lun-am', type:'col', label:'Collation après-midi', name:'Amandes & carré de chocolat noir', kcal:160, p:5, g:8, l:13},
-      {id:'din-lun', type:'din', label:'Dîner', name:'Soupe thaï coco-lentilles corail', kcal:350, p:18, g:42, l:9},
-      {id:'des-soir-lun', type:'des', label:'Dessert soir', name:'Mousse au chocolat noir légère', kcal:110, p:5, g:14, l:4},
-    ],
-    Mardi: [
-      {id:'pdj-mar', type:'pdj', label:'Petit-déjeuner', name:'Toast avocat-œuf poché', kcal:340, p:16, g:32, l:14},
-      {id:'col-mar-m', type:'col', label:'Collation matin', name:'Smoothie vert épinards-pomme', kcal:120, p:3, g:28, l:1},
-      {id:'dej-mar', type:'dej', label:'Déjeuner', name:'Curry de pois chiches & épinards', kcal:460, p:20, g:58, l:10},
-      {id:'des-midi-mar', type:'des', label:'Dessert midi', name:'Panna cotta vanille légère', kcal:95, p:4, g:14, l:2},
-      {id:'col-mar-am', type:'col', label:'Collation après-midi', name:'Crackers de riz + houmous', kcal:155, p:5, g:22, l:5, transport:'À emporter'},
-      {id:'din-mar', type:'din', label:'Dîner', name:'Saumon teriyaki & riz jasmin', kcal:420, p:35, g:45, l:9},
-      {id:'des-soir-mar', type:'des', label:'Dessert soir', name:'Sorbet mangue-citron vert', kcal:85, p:1, g:20, l:0},
-    ],
-    Mercredi: [
-      {id:'pdj-mer', type:'pdj', label:'Petit-déjeuner', name:'Pancakes protéinés myrtilles', kcal:360, p:22, g:44, l:9},
-      {id:'col-mer-m', type:'col', label:'Collation matin', name:'Fromage blanc + miel + noix', kcal:145, p:9, g:14, l:6},
-      {id:'dej-mer', type:'dej', label:'Déjeuner', name:'Buddha bowl quinoa-légumes rôtis', kcal:495, p:18, g:65, l:11},
-      {id:'des-midi-mer', type:'des', label:'Dessert midi', name:'Yaourt glacé fruits rouges', kcal:80, p:4, g:14, l:1},
-      {id:'col-mer-am', type:'col', label:'Collation après-midi', name:'Banane & beurre d\'amande', kcal:180, p:5, g:28, l:7},
-      {id:'din-mer', type:'din', label:'Dîner', name:'Wok bœuf-légumes sauce huître', kcal:410, p:32, g:38, l:10, af:true},
-      {id:'des-soir-mer', type:'des', label:'Dessert soir', name:'Carpaccio d\'ananas-menthe', kcal:60, p:1, g:14, l:0},
-    ],
-    Jeudi: [
-      {id:'pdj-jeu', type:'pdj', label:'Petit-déjeuner', name:'Açaï bowl & granola maison', kcal:380, p:10, g:56, l:12},
-      {id:'col-jeu-m', type:'col', label:'Collation matin', name:'Œuf dur + crackers', kcal:130, p:9, g:12, l:5, transport:'À emporter'},
-      {id:'dej-jeu', type:'dej', label:'Déjeuner', name:'Tajine poulet-citron-olives', kcal:470, p:38, g:32, l:14},
-      {id:'des-midi-jeu', type:'des', label:'Dessert midi', name:'Figues rôties au miel', kcal:100, p:1, g:24, l:1},
-      {id:'col-jeu-am', type:'col', label:'Collation après-midi', name:'Smoothie protéiné vanille', kcal:170, p:18, g:18, l:3},
-      {id:'din-jeu', type:'din', label:'Dîner', name:'Velouté de patate douce & coriandre', kcal:300, p:8, g:52, l:6},
-      {id:'des-soir-jeu', type:'des', label:'Dessert soir', name:'Crème brûlée légère', kcal:120, p:5, g:16, l:4},
-    ],
-    Vendredi: [
-      {id:'pdj-ven', type:'pdj', label:'Petit-déjeuner', name:'Bol de céréales granola + lait amande', kcal:340, p:9, g:52, l:10},
-      {id:'col-ven-m', type:'col', label:'Collation matin', name:'Kiwi & amandes', kcal:120, p:4, g:16, l:5},
-      {id:'dej-ven', type:'dej', label:'Déjeuner', name:'Pâtes complètes pesto-crevettes', kcal:510, p:30, g:62, l:12},
-      {id:'des-midi-ven', type:'des', label:'Dessert midi', name:'Tiramisu allégé au café', kcal:130, p:6, g:18, l:4},
-      {id:'col-ven-am', type:'col', label:'Collation après-midi', name:'Datte + noix de cajou', kcal:150, p:3, g:22, l:6},
-      {id:'din-ven', type:'din', label:'Dîner', name:'Pizza maison base chou-fleur', kcal:390, p:24, g:38, l:14},
-      {id:'des-soir-ven', type:'des', label:'Dessert soir', name:'Fraises à la menthe fraîche', kcal:55, p:1, g:12, l:0},
-    ],
-    Samedi: [
-      {id:'pdj-sam', type:'pdj', label:'Petit-déjeuner', name:'French toast cannelle + fruits', kcal:400, p:16, g:58, l:10},
-      {id:'col-sam-m', type:'col', label:'Collation matin', name:'Jus d\'orange frais pressé', kcal:90, p:1, g:22, l:0},
-      {id:'dej-sam', type:'dej', label:'Déjeuner', name:'Brunch eggs benedict healthy', kcal:520, p:28, g:42, l:22},
-      {id:'des-midi-sam', type:'des', label:'Dessert midi', name:'Brownie noix-datte sans sucre ajouté', kcal:140, p:4, g:20, l:6},
-      {id:'col-sam-am', type:'col', label:'Collation après-midi', name:'Kombucha & oléagineux', kcal:130, p:3, g:10, l:8},
-      {id:'din-sam', type:'din', label:'Dîner', name:'Risotto champignons & parmesan', kcal:440, p:18, g:60, l:13},
-      {id:'des-soir-sam', type:'des', label:'Dessert soir', name:'Fondant chocolat coulant léger', kcal:160, p:6, g:22, l:6},
-    ],
-    Dimanche: [
-      {id:'pdj-dim', type:'pdj', label:'Petit-déjeuner', name:'Gaufres flocons avoine-banane', kcal:380, p:14, g:60, l:9},
-      {id:'col-dim-m', type:'col', label:'Collation matin', name:'Thé matcha latte & crackers', kcal:110, p:3, g:18, l:3},
-      {id:'dej-dim', type:'dej', label:'Déjeuner', name:'Rôti de poulet dominical & gratin', kcal:540, p:44, g:40, l:16, af:true},
-      {id:'des-midi-dim', type:'des', label:'Dessert midi', name:'Tarte tatin pomme allégée', kcal:150, p:3, g:28, l:4},
-      {id:'col-dim-am', type:'col', label:'Collation après-midi', name:'Fruits de saison & amandes', kcal:140, p:4, g:22, l:5},
-      {id:'din-dim', type:'din', label:'Dîner', name:'Soupe minestrone & pain de seigle', kcal:280, p:12, g:48, l:4},
-      {id:'des-soir-dim', type:'des', label:'Dessert soir', name:'Pots de crème vanille maison', kcal:110, p:5, g:14, l:4},
-    ],
-  },
-  courses: {
-    'Protéines 🥩': [
-      {l:'Filets de poulet', q:'1.2 kg'}, {l:'Saumon frais', q:'400 g'},
-      {l:'Œufs bio', q:'12'}, {l:'Yaourt grec 0%', q:'2 × 500 g'},
-      {l:'Fromage blanc', q:'500 g'},
-    ],
-    'Légumes & Féculents 🥦': [
-      {l:'Épinards frais', q:'400 g'}, {l:'Patate douce', q:'800 g'},
-      {l:'Courgettes', q:'4'}, {l:'Champignons Paris', q:'300 g'},
-      {l:'Quinoa', q:'500 g'}, {l:'Riz jasmin', q:'500 g'},
-      {l:'Pâtes complètes', q:'500 g'},
-    ],
-    'Fruits 🍓': [
-      {l:'Bananes', q:'5'}, {l:'Myrtilles', q:'250 g'},
-      {l:'Pommes', q:'6'}, {l:'Mangue surgelée', q:'500 g'},
-      {l:'Fraises', q:'500 g'},
-    ],
-    'Épicerie & Autres 🛒': [
-      {l:'Lait de coco', q:'2 × 400 ml'}, {l:'Pois chiches en boîte', q:'2 × 400 g'},
-      {l:'Lentilles corail', q:'300 g'}, {l:'Houmous', q:'200 g'},
-      {l:'Chocolat noir 85%', q:'200 g'}, {l:'Miel d\'acacia', q:'1 pot'},
-      {l:'Amandes', q:'200 g'},
-    ],
-  },
-  recipes: {
-    'pdj-lun': {
-      desc: 'Un porridge réconfortant et gourmand pour bien démarrer la journée, avec une texture crémeuse et des épices douces.',
-      ingredients: [
-        {name:'Flocons d\'avoine', base:80, unit:'g'},
-        {name:'Lait végétal (amande ou avoine)', base:250, unit:'ml'},
-        {name:'Banane', base:1, unit:'entier'},
-        {name:'Cannelle', base:1, unit:'tsp'},
-        {name:'Miel', base:1, unit:'tsp'},
-        {name:'Amandes effilées', base:15, unit:'g'},
-      ],
-      steps: `<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Faire chauffer</div><div class="step-timing">⏱ 5 min</div></div><div class="step-desc">Dans une casserole, mélangez les flocons d'avoine avec le lait végétal. Chauffez à feu moyen en remuant régulièrement.</div></div>
-<div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Écraser la banane</div></div><div class="step-desc">Écrasez la banane à la fourchette. Ajoutez la cannelle et la moitié de la banane dans la casserole en remuant.</div><div class="step-tip">Gardez quelques rondelles pour la déco du dessus !</div></div>
-<div class="step-block"><div class="step-header"><div class="step-num">3</div><div class="step-title">Servir & garnir</div></div><div class="step-desc">Versez dans un bol, déposez le reste de banane, les amandes effilées et un filet de miel. Dégustez chaud.</div></div>`
-    },
-  }
-};
+// [DEDUP] WEEK_DATA already declared
 
-const BANK_RECIPES = [
-  {id:'b-curry', label:'Plat', name:'Curry de légumes d\'été', kcal:380, p:14, g:58, l:8, time:'25 min',
-    ingredients:[{name:'Courgette',base:1,unit:'entier'},{name:'Lait de coco',base:200,unit:'ml'},{name:'Pois chiches',base:150,unit:'g'},{name:'Curry en poudre',base:2,unit:'tsp'}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Faire revenir</div><div class="step-timing">⏱ 5 min</div></div><div class="step-desc">Faites revenir l'oignon émincé dans un filet d'huile d'olive. Ajoutez les dés de courgette.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Ajouter le curry</div></div><div class="step-desc">Versez le lait de coco, les pois chiches égouttés et le curry. Mijotez 20 minutes.</div><div class="step-tip">Servez avec du riz basmati ou du quinoa !</div></div>`},
-  {id:'b-salade-zen', label:'Salade', name:'Salade zen poulet-avocat', kcal:420, p:32, g:18, l:22, time:'15 min',
-    ingredients:[{name:'Poulet grillé',base:150,unit:'g'},{name:'Avocat',base:1,unit:'entier'},{name:'Feuilles de laitue',base:80,unit:'g'},{name:'Tomates cerises',base:100,unit:'g'}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Préparer les ingrédients</div></div><div class="step-desc">Coupez le poulet en lamelles, l'avocat en cubes, coupez les tomates en deux.</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Assembler</div><div class="step-timing">⏱ 5 min</div></div><div class="step-desc">Disposez la laitue, ajoutez le poulet, l'avocat et les tomates. Assaisonnez d'huile d'olive et citron.</div></div>`},
-  {id:'b-choc-mousse', label:'Dessert', name:'Mousse chocolat noir express', kcal:140, p:7, g:16, l:6, time:'10 min',
-    ingredients:[{name:'Chocolat noir 85%',base:60,unit:'g'},{name:'Blanc d\'œuf',base:2,unit:'entier'},{name:'Tofu soyeux',base:100,unit:'g'}],
-    steps:`<div class="step-block"><div class="step-header"><div class="step-num">1</div><div class="step-title">Fondre le chocolat</div><div class="step-timing">⏱ 3 min</div></div><div class="step-desc">Faites fondre le chocolat au bain-marie. Incorporez le tofu soyeux mixé.</div><div class="step-tip">Le tofu soyeux remplace la crème et allège la mousse !</div></div><div class="step-block"><div class="step-header"><div class="step-num">2</div><div class="step-title">Monter les blancs</div></div><div class="step-desc">Montez les blancs en neige ferme, incorporez-les délicatement. Réfrigérez 1h minimum.</div></div>`},
-];
+
+// [DEDUP] BANK_RECIPES already declared
+
 
 // ══════════════════════════════════════════════════════
 //  CONSTANTES & STORAGE
 // ══════════════════════════════════════════════════════
-const DAYS_ORDER = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
-const MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+// [DEDUP] DAYS_ORDER already declared
+
+// [DEDUP] MONTHS_FR already declared
+
 
 function gS(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}}
 function sS(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
 
-// (var définie globalement) let mealChecks    = gS('mealChecks', {})...
-// (var définie globalement) let courseChecks  = gS('courseChecks', {...
-// (var définie globalement) let dessertToggles= gS('dessertToggles',...
-// (var définie globalement) let mealReplace   = gS('mealReplace2', {...
-// (var définie globalement) let waterData     = gS('waterData', {});...
-// (var définie globalement) let pasData       = gS('pasData', {});...
+// [DEDUP] mealChecks already declared
+...
 // (var définie globalement) let weeklyBilans  = gS('weeklyBilans', {...
 // (var définie globalement) let bilanStep1Data= null, bilanSelectedMood = nu...
 
@@ -3442,13 +3658,15 @@ function sS(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
 // (var définie globalement) let currentDay    = 'Lundi';...
 // (var définie globalement) let showingCourses= false;...
 // (var définie globalement) let showingBilan  = false;...
-// (var définie globalement) let showingBank   = false;...
+// [DEDUP] showingBank already declared
+...
 // (var définie globalement) let currentMeal   = null;...
 // (var définie globalement) let currentMealIdx= -1;...
 // (var définie globalement) let pendingReplaceIdx = -1;...
 let currentPortion = 1;
 let selectedCmp = []; // indices compagnons sélectionnés pour la recette
-let companions = gS('companions', []); // partagé avec partie 1
+// [DEDUP] companions already declared
+ // partagé avec partie 1
 
 // ══════════════════════════════════════════════════════
 //  NAV
@@ -3518,13 +3736,8 @@ function updatePasSemaine() {
 function renderProg() {
   const list = document.getElementById('weeks-list');
   list.innerHTML = '';
-  const WEEKS_META = {
-    1:{subtitle:'Lancer en douceur', avail:true},
-    2:{subtitle:'Prendre le rythme'},
-    3:{subtitle:'Confirmer les habitudes'},
-    4:{subtitle:'Accélérer'},
-    12:{subtitle:'La ligne d\'arrivée 🏆'},
-  };
+// [DEDUP] WEEKS_META already declared
+
   for(let w=1; w<=12; w++) {
     const meta = WEEKS_META[w]||{};
     const avail = meta.avail||false;
@@ -4085,7 +4298,8 @@ function bilanGoStep2() {
 function closeBilanStep2(){document.getElementById('bilan-step2-modal').classList.remove('open');}
 function closeBilanStep2IfBackdrop(e){if(e.target===document.getElementById('bilan-step2-modal'))closeBilanStep2();}
 function bilanBackStep1(){closeBilanStep2();openBilanStep1();}
-const MOODS=[{key:'difficile',e:'😞',l:'Difficile'},{key:'moyen',e:'😕',l:'Moyen'},{key:'plutot-bien',e:'🙂',l:'Plutôt bien'},{key:'bien',e:'😄',l:'Bien'},{key:'top',e:'🤩',l:'Top !'}];
+// [DEDUP] MOODS already declared
+
 function renderMoodSelectorBilan(){
   const c=document.getElementById('bilan-mood-selector');
   c.innerHTML=MOODS.map(m=>`<button class="mood-btn-b${bilanMood===m.key?' selected':''}" onclick="selectBilanMood('${m.key}')"><span class="mood-emoji-b">${m.e}</span><span class="mood-label-b">${m.l}</span></button>`).join('');
