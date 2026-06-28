@@ -1200,7 +1200,7 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg);overflo
     <div class="hero-top">
       <div class="hero-text">
         <div class="hero-label">Ma progression — 12 semaines</div>
-        <div class="hero-val" id="hero-lost">3.5 kg perdus</div>
+        <div class="hero-val" id="hero-lost">— kg perdus</div>
         <div class="hero-sub">Objectif : −15 kg 💪</div>
       </div>
       <div class="hero-ring">
@@ -1226,12 +1226,12 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg);overflo
     </div>
     <div class="stat-card te">
       <div class="stat-label">Streak 🔥</div>
-      <div class="stat-val" id="stat-streak">5 j.</div>
+      <div class="stat-val" id="stat-streak">0 j.</div>
       <div class="stat-sub">consécutifs</div>
     </div>
     <div class="stat-card sg">
       <div class="stat-label">Repas</div>
-      <div class="stat-val" id="stat-repas">3/5</div>
+      <div class="stat-val" id="stat-repas">0/0</div>
       <div class="stat-sub">cochés aujourd'hui</div>
     </div>
     <div class="stat-card ja">
@@ -1379,14 +1379,14 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg);overflo
     <div class="sh-stats">
       <div class="sh-stat"><div class="sh-val" id="sport-nb-seances">2</div><div class="sh-lbl">Séances</div></div>
       <div class="sh-stat"><div class="sh-val" id="sport-kcal">480</div><div class="sh-lbl">kcal brûlées</div></div>
-      <div class="sh-stat"><div class="sh-val" id="sport-streak">5 🔥</div><div class="sh-lbl">Jours actifs</div></div>
+      <div class="sh-stat"><div class="sh-val" id="sport-streak">0 🔥</div><div class="sh-lbl">Jours actifs</div></div>
     </div>
     <div class="sh-dots" style="margin-top:12px">
-      <div class="sh-dot done" title="Lundi">✓</div>
+      <div class="sh-dot" title="Lundi">L</div>
       <div class="sh-dot" title="Mardi">M</div>
-      <div class="sh-dot done" title="Mercredi">✓</div>
+      <div class="sh-dot" title="Mercredi">M</div>
       <div class="sh-dot" title="Jeudi">J</div>
-      <div class="sh-dot" title="Vendredi" style="border-color:rgba(255,255,255,.5)">V</div>
+      <div class="sh-dot" title="Vendredi">V</div>
       <div class="sh-dot" title="Samedi">S</div>
       <div class="sh-dot" title="Dimanche">D</div>
     </div>
@@ -1419,20 +1419,20 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg);overflo
           stroke-dasharray="150.8" stroke-dashoffset="90.5"
           stroke-linecap="round" transform="rotate(-90 40 40)"/>
       </svg>
-      <div class="donut-center"><div class="donut-center-val">2/3</div><div class="donut-center-lbl">séances</div></div>
+      <div class="donut-center"><div class="donut-center-val">0/3</div><div class="donut-center-lbl">séances</div></div>
     </div>
     <div class="donut-legend">
       <div class="donut-legend-item">
         <div class="donut-dot" style="background:var(--rose)"></div>
         <div>
-          <div class="donut-legend-val">2 <span style="font-size:11px;font-weight:600;color:var(--text-soft)">/ 3 objectif</span></div>
+          <div class="donut-legend-val">0 <span style="font-size:11px;font-weight:600;color:var(--text-soft)">/ 3 objectif</span></div>
           <div class="donut-legend-lbl">Séances cette semaine</div>
         </div>
       </div>
       <div class="donut-legend-item">
         <div class="donut-dot" style="background:var(--sauge)"></div>
         <div>
-          <div class="donut-legend-val">480 <span style="font-size:11px;font-weight:600;color:var(--text-soft)">/ 800 kcal</span></div>
+          <div class="donut-legend-val">0 <span style="font-size:11px;font-weight:600;color:var(--text-soft)">/ 800 kcal</span></div>
           <div class="donut-legend-lbl">Calories brûlées</div>
         </div>
       </div>
@@ -1787,7 +1787,10 @@ function goScreen(id) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   const map = {'screen-home':'nav-home','screen-prog':'nav-prog','screen-sport':'nav-sport','screen-suivi':'nav-suivi'};
   if(map[id]) document.getElementById(map[id]).classList.add('active');
-  if(id === 'screen-home') renderHome();
+  if(id === 'screen-home')  renderHome();
+  if(id === 'screen-prog')  renderProg();
+  if(id === 'screen-sport') renderSport();
+  if(id === 'screen-suivi') renderSuivi();
 }
 
 // ── DATE DU JOUR ──────────────────────────────────────────────────────────────
@@ -3515,8 +3518,8 @@ function renderSuivi() {
 function renderSport() {
   const nb = seances.length;
   const totalKcal = seances.reduce((a,s) => a + (s.kcal||0), 0);
-  document.getElementById('sport-nb-seances').textContent = nb || 2;
-  document.getElementById('sport-kcal').textContent = totalKcal || 480;
+  document.getElementById('sport-nb-seances').textContent = nb;
+  document.getElementById('sport-kcal').textContent = totalKcal;
   renderHistoriqueSeances();
   renderPasSport();
 }
@@ -4013,23 +4016,7 @@ function renderPasSport() {
 //  PARTAGE + PDF DÉTAIL SÉANCE
 // ════════════════════════════════════════════════════
 function getSeanceForIdx(idx) {
-  const FICTIVES = [
-    {date:'Mercredi 25 juin', nom:'Full body — Jambes + Dos', kcal:260, duree:55, eval:'super', tags:['jambes','dos'], note:'Super séance, jambes bien ressenties !',
-      exercises:[
-        {name:'Squat', type:'muscu', series:[{poids:40,reps:12,done:true},{poids:45,reps:10,done:true},{poids:45,reps:8,done:true}]},
-        {name:'Leg Press', type:'muscu', series:[{poids:80,reps:15,done:true},{poids:90,reps:12,done:true},{poids:90,reps:10,done:true}]},
-        {name:'Rowing haltère', type:'muscu', series:[{poids:16,reps:12,done:true},{poids:18,reps:10,done:true},{poids:18,reps:8,done:true}]},
-        {name:'Tapis de course', type:'cardio', cardioData:{duree:'15', val1:'8.5', val2:'1'}},
-      ]},
-    {date:'Lundi 23 juin', nom:'Upper body — Épaules + Bras', kcal:220, duree:48, eval:'bien', tags:['epaules','bras'], note:'',
-      exercises:[
-        {name:'Développé militaire', type:'muscu', series:[{poids:20,reps:12,done:true},{poids:22,reps:10,done:true},{poids:22,reps:8,done:true}]},
-        {name:'Élévations latérales', type:'muscu', series:[{poids:8,reps:15,done:true},{poids:8,reps:15,done:true},{poids:8,reps:12,done:true}]},
-        {name:'Curl haltères', type:'muscu', series:[{poids:10,reps:12,done:true},{poids:12,reps:10,done:true},{poids:12,reps:8,done:true}]},
-        {name:'French Press', type:'muscu', series:[{poids:14,reps:12,done:true},{poids:16,reps:10,done:true},{poids:16,reps:8,done:true}]},
-      ]},
-  ];
-  return [...seances, ...FICTIVES][idx];
+  return seances[idx];
 }
 
 function shareSeanceDetail(idx) {
