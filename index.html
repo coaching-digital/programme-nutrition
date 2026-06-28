@@ -12,7 +12,89 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
+// ── WEEK LOADER ───────────────────────────────────────
+let loadedWeeks = {};
+function loadWeek(weekNum, callback) {
+  if(loadedWeeks[weekNum]) { callback(loadedWeeks[weekNum]); return; }
+  const filename = 'week-' + String(weekNum).padStart(2,'0') + '.js';
+  fetch(filename + '?v=' + Date.now())
+    .then(r => { if(!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+    .then(jsText => {
+      const fn = new Function(jsText); fn();
+      const data = window['WEEK_DATA_' + weekNum];
+      if(data) { loadedWeeks[weekNum] = data; callback(data); }
+      else callback(null);
+    })
+    .catch(err => { console.error('loadWeek error', weekNum, err); callback(null); });
+}
+
+// ── RECETTES ──────────────────────────────────────────
+let RECIPES_PLATS = [];
+let RECIPES_DESSERTS = [];
+let RECIPES_SALADES = {taboules:[], salades:[]};
+let RECIPES_REGLES  = {petitsDejeuners:[], dejeuners:[], diners:[], collations:[], desserts:[]};
+let RECIPE_BANK = {plats:[], desserts:[]};
+
+function refreshRecipeBankAlias(){
+  RECIPE_BANK = { plats: RECIPES_PLATS, desserts: RECIPES_DESSERTS };
+}
+function loadRecipesPlats(){
+  fetch('recipes-plats.js?v='+Date.now()).then(r=>r.ok?r.text():Promise.reject(r.status))
+  .then(js=>{const fn=new Function(js);fn();if(window.RECIPES_PLATS_DATA){RECIPES_PLATS=window.RECIPES_PLATS_DATA;refreshRecipeBankAlias();}})
+  .catch(e=>console.error('recipes-plats',e));
+}
+function loadRecipesDesserts(){
+  fetch('recipes-desserts.js?v='+Date.now()).then(r=>r.ok?r.text():Promise.reject(r.status))
+  .then(js=>{const fn=new Function(js);fn();if(window.RECIPES_DESSERTS_DATA){RECIPES_DESSERTS=window.RECIPES_DESSERTS_DATA;refreshRecipeBankAlias();}})
+  .catch(e=>console.error('recipes-desserts',e));
+}
+function loadRecipesSalades(){
+  fetch('recipes-salades.js?v='+Date.now()).then(r=>r.ok?r.text():Promise.reject(r.status))
+  .then(js=>{const fn=new Function(js);fn();if(window.RECIPES_SALADES_DATA){RECIPES_SALADES=window.RECIPES_SALADES_DATA;}})
+  .catch(e=>console.error('recipes-salades',e));
+}
+function loadRecipesRegles(){
+  fetch('recipes-regles.js?v='+Date.now()).then(r=>r.ok?r.text():Promise.reject(r.status))
+  .then(js=>{const fn=new Function(js);fn();if(window.RECIPES_REGLES_DATA){RECIPES_REGLES=window.RECIPES_REGLES_DATA;}})
+  .catch(e=>console.error('recipes-regles',e));
+}
+function getAllReplaceableRecipes(){
+  return [].concat(
+    RECIPE_BANK.plats||[], RECIPE_BANK.desserts||[],
+    RECIPES_SALADES.taboules||[], RECIPES_SALADES.salades||[],
+    RECIPES_REGLES.petitsDejeuners||[], RECIPES_REGLES.dejeuners||[],
+    RECIPES_REGLES.diners||[], RECIPES_REGLES.collations||[], RECIPES_REGLES.desserts||[]
+  );
+}
+
+// ── BILAN AUTO-PROMPT ─────────────────────────────────
+function getCurrentWeekNumber(){
+  if(!startDate) return null;
+  const today=new Date(); today.setHours(0,0,0,0);
+  for(let w=1;w<=12;w++){
+    const dates=getWeekDates(w); if(!dates) continue;
+    const s=new Date(dates.startD); s.setHours(0,0,0,0);
+    const e=new Date(dates.endD);   e.setHours(23,59,59,0);
+    if(today>=s && today<=e) return w;
+  }
+  return null;
+}
+function isLastDayOfWeek(w){
+  const dates=getWeekDates(w); if(!dates) return false;
+  const today=new Date(); today.setHours(0,0,0,0);
+  const wEnd=new Date(dates.endD); wEnd.setHours(0,0,0,0);
+  return today.getTime()===wEnd.getTime();
+}
+function checkWeeklyReviewPrompt(){
+  const w=getCurrentWeekNumber(); if(!w) return;
+  if(!isLastDayOfWeek(w)) return;
+  if(weeklyBilans&&weeklyBilans[w]) return;
+  bilanCurrentWeek=w;
+  setTimeout(()=>openBilanStep1(w),600);
+}
+
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 /* ══════════════════════════════════════════
@@ -243,7 +325,6 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg);overflo
 .toast{position:fixed;bottom:115px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:#fff;padding:11px 22px;border-radius:var(--radius-pill);font-size:13px;font-weight:700;opacity:0;transition:all .3s;z-index:500;white-space:nowrap;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.2)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-/* == PROGRAMME + OVERLAY == */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --rose:#FF3D72;--rose-dark:#E8234F;--rose-light:#FFE5EC;--rose-border:#FFB5C8;
@@ -518,7 +599,6 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg);overflo
 .toast{position:fixed;bottom:115px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:#fff;padding:11px 22px;border-radius:var(--radius-pill);font-size:13px;font-weight:700;opacity:0;transition:all .3s;z-index:500;white-space:nowrap;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-/* == SUIVI + SPORT == */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --rose:#FF3D72;--rose-dark:#E8234F;--rose-light:#FFE5EC;--rose-border:#FFB5C8;
@@ -861,9 +941,7 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg);overflo
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════
-     MODAL — CYCLE FÉMININ
-     ═══════════════════════════════════════ -->
+
 <!-- ═══════════════════════════════════════
      MODAL — CYCLE FÉMININ
      ═══════════════════════════════════════ -->
@@ -892,9 +970,7 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg);overflo
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════
-     MODAL — IMPACT ÉVÉNEMENT
-     ═══════════════════════════════════════ -->
+
 <!-- ═══════════════════════════════════════
      MODAL — IMPACT ÉVÉNEMENT
      ═══════════════════════════════════════ -->
@@ -912,8 +988,9 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg);overflo
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════
-     TOAST
+
+<div class="toast" id="toast"></div>
+
 <!-- ═══════════════ RECIPE MODAL ═══════════════ -->
 <div class="modal-overlay" id="recipe-modal" onclick="closeRecipeIfBackdrop(event)">
   <div class="modal-sheet">
@@ -948,7 +1025,7 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg);overflo
   </div>
 </div>
 
-<!-- ═══════════════ REPLACE MODAL ═══════════════ -->
+
 <!-- ═══════════════ REPLACE MODAL ═══════════════ -->
 <div class="modal-overlay" id="replace-modal" onclick="closeReplaceIfBackdrop(event)">
   <div class="modal-sheet">
@@ -962,7 +1039,7 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg);overflo
   </div>
 </div>
 
-<!-- ═══════════════ BILAN STEP 1 ═══════════════ -->
+
 <!-- ═══════════════ BILAN STEP 1 ═══════════════ -->
 <div class="modal-overlay" id="bilan-step1-modal" onclick="closeBilanStep1IfBackdrop(event)">
   <div class="modal-sheet">
@@ -999,7 +1076,7 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg);overflo
   </div>
 </div>
 
-<!-- ═══════════════ BILAN STEP 2 ═══════════════ -->
+
 <!-- ═══════════════ BILAN STEP 2 ═══════════════ -->
 <div class="modal-overlay" id="bilan-step2-modal" onclick="closeBilanStep2IfBackdrop(event)">
   <div class="modal-sheet">
@@ -1034,17 +1111,232 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg);overflo
 
 <div class="toast" id="toast"></div>
 
-<!-- ═══════════════════════════════════════════
-     SCREEN ACCUEIL (placeholder)
-     ═══════════════════════════════════════════ -->
-<div class="screen active" id="screen-home">
-  <div style="padding:80px 18px 20px;text-align:center">
-    <div style="font-size:48px;margin-bottom:16px">🏠</div>
-    <div style="font-size:20px;font-weight:900;color:var(--text);margin-bottom:8px">Accueil</div>
-    <div style="font-size:14px;color:var(--text-soft);margin-bottom:24px">← Déjà développé en Partie 1</div>
-    <button onclick="goScreen('screen-prog')" style="background:var(--rose);color:#fff;border:none;padding:14px 28px;border-radius:var(--radius);font-size:14px;font-weight:800;font-family:var(--font);cursor:pointer">Voir le Programme 🥗</button>
+
+
+<!-- ═══ MODAL — PICKER EXERCICE MUSCU ═══ -->
+<div class="modal-overlay" id="exo-picker-modal">
+  <div class="modal-sheet" style="position:relative">
+    <div class="modal-handle"></div>
+    <button class="modal-close-btn" onclick="document.getElementById('exo-picker-modal').classList.remove('open')">✕</button>
+    <div id="exo-picker-list"></div>
   </div>
 </div>
+
+
+<!-- ═══ MODAL — PICKER EXERCICE CARDIO ═══ -->
+<div class="modal-overlay" id="cardio-picker-modal">
+  <div class="modal-sheet" style="position:relative">
+    <div class="modal-handle"></div>
+    <button class="modal-close-btn" onclick="document.getElementById('cardio-picker-modal').classList.remove('open')">✕</button>
+    <div id="cardio-picker-list"></div>
+  </div>
+</div>
+
+
+<!-- ═══ MODAL — DÉTAIL EXERCICE (explications + astuces) ═══ -->
+<div class="modal-overlay" id="exo-detail-modal" onclick="closeExoDetailIfBackdrop(event)">
+  <div class="modal-sheet" style="position:relative">
+    <div class="modal-handle"></div>
+    <button class="modal-close-btn" onclick="closeExoDetail()">✕</button>
+    <div id="exo-detail-content"></div>
+  </div>
+</div>
+
+
+<!-- ═══ MODAL — DÉTAIL SÉANCE (exercices + charges) ═══ -->
+<div class="modal-overlay" id="seance-detail-modal" onclick="closeSeanceDetailIfBackdrop(event)">
+  <div class="modal-sheet" style="position:relative">
+    <div class="modal-handle"></div>
+    <button class="modal-close-btn" onclick="closeSeanceDetail()">✕</button>
+    <div id="seance-detail-content"></div>
+  </div>
+</div>
+
+
+
+<!-- ═══════════════════════════════════════
+     SCREEN — ACCUEIL
+     ═══════════════════════════════════════ -->
+<div class="screen active" id="screen-home">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-sub" id="home-greeting">Bonjour Pauline 🌸</div>
+      <div class="page-title" id="home-date">Vendredi 27 juin</div>
+    </div>
+    <div class="page-avatar">🧘</div>
+  </div>
+
+  <!-- Mood -->
+  <div class="mood-card">
+    <div class="mood-title">Comment tu te sens aujourd'hui ?</div>
+    <div class="mood-row">
+      <button class="mood-btn" onclick="selectMoodHome('bad')" id="mb-bad">
+        <div class="mood-emoji-wrap" id="mw-bad">😞</div>
+        <div class="mood-txt">Difficile</div>
+      </button>
+      <button class="mood-btn" onclick="selectMoodHome('meh')" id="mb-meh">
+        <div class="mood-emoji-wrap" id="mw-meh">😕</div>
+        <div class="mood-txt">Moyen</div>
+      </button>
+      <button class="mood-btn" onclick="selectMoodHome('ok')" id="mb-ok">
+        <div class="mood-emoji-wrap" id="mw-ok">🙂</div>
+        <div class="mood-txt">Bien</div>
+      </button>
+      <button class="mood-btn" onclick="selectMoodHome('good')" id="mb-good">
+        <div class="mood-emoji-wrap" id="mw-good">😄</div>
+        <div class="mood-txt">Super</div>
+      </button>
+      <button class="mood-btn" onclick="selectMoodHome('great')" id="mb-great">
+        <div class="mood-emoji-wrap" id="mw-great">🤩</div>
+        <div class="mood-txt">Top !</div>
+      </button>
+    </div>
+  </div>
+
+  <!-- Hero Card -->
+  <div class="hero-card">
+    <div class="hero-top">
+      <div class="hero-text">
+        <div class="hero-label">Ma progression — 12 semaines</div>
+        <div class="hero-val" id="hero-lost">3.5 kg perdus</div>
+        <div class="hero-sub">Objectif : −15 kg 💪</div>
+      </div>
+      <div class="hero-ring">
+        <svg width="66" height="66" viewBox="0 0 66 66">
+          <circle class="ring-bg" cx="33" cy="33" r="28"/>
+          <circle class="ring-fill" id="ring-fill" cx="33" cy="33" r="28"
+            stroke-dasharray="175.9" stroke-dashoffset="175.9"/>
+        </svg>
+        <div class="ring-center" id="ring-pct">23%</div>
+      </div>
+    </div>
+    <div class="hero-bar-wrap">
+      <div class="hero-bar-fill" id="hero-bar" style="width:23%"></div>
+    </div>
+  </div>
+
+  <!-- Stats 2×2 -->
+  <div class="stat-grid">
+    <div class="stat-card vl" onclick="goScreen('screen-prog')">
+      <div class="stat-label">Programme</div>
+      <div class="stat-val">Sem. 1</div>
+      <div class="stat-sub">Jour 5 en cours</div>
+    </div>
+    <div class="stat-card te">
+      <div class="stat-label">Streak 🔥</div>
+      <div class="stat-val" id="stat-streak">5 j.</div>
+      <div class="stat-sub">consécutifs</div>
+    </div>
+    <div class="stat-card sg">
+      <div class="stat-label">Repas</div>
+      <div class="stat-val" id="stat-repas">3/5</div>
+      <div class="stat-sub">cochés aujourd'hui</div>
+    </div>
+    <div class="stat-card ja">
+      <div class="stat-label">Badge du jour</div>
+      <div class="stat-val">🏆</div>
+      <div class="stat-sub">5 jours de suite</div>
+    </div>
+  </div>
+
+  <!-- Bubbles -->
+  <div class="bubble vl" onclick="goScreen('screen-prog')">
+    <div class="bubble-icon">📅</div>
+    <div class="bubble-body">
+      <div class="bubble-name">Menus de la semaine</div>
+      <div class="bubble-sub">Semaine 1 · Vendredi</div>
+    </div>
+    <div class="bubble-arrow">›</div>
+  </div>
+
+  <div class="bubble te" onclick="goScreen('screen-sport')">
+    <div class="bubble-icon">💪</div>
+    <div class="bubble-body">
+      <div class="bubble-name">Mon sport</div>
+      <div class="bubble-sub">2 séances cette semaine</div>
+    </div>
+    <div class="bubble-arrow">›</div>
+  </div>
+
+  <div class="bubble sg" onclick="goScreen('screen-suivi')">
+    <div class="bubble-icon">📏</div>
+    <div class="bubble-body">
+      <div class="bubble-name">Mon suivi corporel</div>
+      <div class="bubble-sub">71.5 kg · voir l'évolution</div>
+    </div>
+    <div class="bubble-arrow">›</div>
+  </div>
+
+  <!-- Eau + Pas -->
+  <div class="eau-pas-card">
+    <div class="eau-block">
+      <div class="ep-label">💧 Eau</div>
+      <div class="ep-val-row">
+        <span class="ep-big" id="eau-count">6</span>
+        <span class="ep-unit">/ 8 verres · 1.5 L</span>
+      </div>
+      <div class="glasses-row" id="water-glasses-home"></div>
+    </div>
+    <div class="pas-block">
+      <div class="ep-label">🚶‍♀️ Mes pas</div>
+      <div class="pas-input-row">
+        <input class="pas-field" id="pas-home" placeholder="0" inputmode="numeric" type="number">
+        <button class="pas-btn" onclick="savePasHome()">OK ✓</button>
+      </div>
+      <div style="font-size:9px;color:var(--text-soft);font-weight:600;margin-top:5px" id="pas-sub-home">pas aujourd'hui</div>
+    </div>
+  </div>
+
+  <!-- Calendrier -->
+  <div class="section-row" style="margin-top:4px">
+    <span class="section-title">📅 Mon calendrier</span>
+    <button class="section-link" onclick="toggleStartPicker()">Démarrage</button>
+  </div>
+  <div class="calendar-wrap">
+    <div class="cal-header">
+      <button class="cal-nav" onclick="prevMonth()">‹</button>
+      <span class="cal-month" id="cal-month-label"></span>
+      <button class="cal-nav" onclick="nextMonth()">›</button>
+    </div>
+    <div class="cal-days-header">
+      <span class="cal-day-name">L</span><span class="cal-day-name">M</span>
+      <span class="cal-day-name">M</span><span class="cal-day-name">J</span>
+      <span class="cal-day-name">V</span><span class="cal-day-name">S</span>
+      <span class="cal-day-name">D</span>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+    <div id="start-picker" style="display:none;margin-top:10px;padding-top:10px;border-top:1.5px solid var(--border)">
+      <div style="font-size:12px;font-weight:700;color:var(--text-mid);margin-bottom:6px">Date de démarrage du programme :</div>
+      <input type="date" id="start-date-input" class="input-field" style="width:100%" onchange="setStartDate(this.value)">
+    </div>
+    <div class="event-form">
+      <input class="event-input" id="event-input" placeholder="Ajouter un événement..." onkeydown="if(event.key==='Enter')addEvent()">
+      <button class="event-btn" onclick="addEvent()">+</button>
+    </div>
+    <div class="events-list" id="events-list"></div>
+  </div>
+
+  <!-- Compagnons -->
+  <div class="section-row">
+    <span class="section-title">👥 Mes compagnons</span>
+    <button class="section-link" onclick="openCmpModal(-1)">Ajouter</button>
+  </div>
+  <div class="companions-section">
+    <div class="companions-scroll" id="companions-scroll"></div>
+  </div>
+
+  <!-- Cycle -->
+  <div class="section-row">
+    <span class="section-title">🌙 Mon cycle</span>
+    <button class="section-link" onclick="openCycleModal()">Configurer</button>
+  </div>
+  <div id="cycle-home-card"></div>
+
+</div>
+
+
 
 <!-- ═══════════════════════════════════════════
      SCREEN PROGRAMME
@@ -1065,27 +1357,204 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg);overflo
   <div class="weeks-list" id="weeks-list"></div>
 </div>
 
-<!-- ═══════════════════════════════════════════
-     SCREEN SPORT (placeholder)
-     ═══════════════════════════════════════════ -->
+
+
+<!-- ════════════════════════════════════════
+     SCREEN SPORT
+     ════════════════════════════════════════ -->
 <div class="screen" id="screen-sport">
-  <div style="padding:80px 18px 20px;text-align:center">
-    <div style="font-size:48px;margin-bottom:16px">💪</div>
-    <div style="font-size:20px;font-weight:900;color:var(--text)">Sport</div>
-    <div style="font-size:14px;color:var(--text-soft);margin-top:8px">→ Partie suivante</div>
+  <div class="page-header">
+    <div class="page-sub">Cette semaine</div>
+    <div class="page-title">Mon sport 💪</div>
+  </div>
+
+  <!-- Hero card -->
+  <div class="sport-hero">
+    <div class="sh-top">
+      <div>
+        <div style="font-size:10px;font-weight:800;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Semaine 1</div>
+        <div style="font-size:20px;font-weight:900;color:#fff">En forme Pauline ! 🔥</div>
+      </div>
+    </div>
+    <div class="sh-stats">
+      <div class="sh-stat"><div class="sh-val" id="sport-nb-seances">2</div><div class="sh-lbl">Séances</div></div>
+      <div class="sh-stat"><div class="sh-val" id="sport-kcal">480</div><div class="sh-lbl">kcal brûlées</div></div>
+      <div class="sh-stat"><div class="sh-val" id="sport-streak">5 🔥</div><div class="sh-lbl">Jours actifs</div></div>
+    </div>
+    <div class="sh-dots" style="margin-top:12px">
+      <div class="sh-dot done" title="Lundi">✓</div>
+      <div class="sh-dot" title="Mardi">M</div>
+      <div class="sh-dot done" title="Mercredi">✓</div>
+      <div class="sh-dot" title="Jeudi">J</div>
+      <div class="sh-dot" title="Vendredi" style="border-color:rgba(255,255,255,.5)">V</div>
+      <div class="sh-dot" title="Samedi">S</div>
+      <div class="sh-dot" title="Dimanche">D</div>
+    </div>
+  </div>
+
+  <!-- Boutons principaux -->
+  <div class="sport-btns">
+    <button class="sport-btn primary" onclick="openLogSeance()">
+      <span class="sport-btn-icon">▶️</span>
+      Démarrer une séance
+    </button>
+    <button class="sport-btn secondary" onclick="openBibliotheque()">
+      <span class="sport-btn-icon">📚</span>
+      Bibliothèque
+    </button>
+  </div>
+
+  <!-- Donut double anneau -->
+  <div class="donut-wrap">
+    <div class="donut-svg-wrap">
+      <svg width="80" height="80" viewBox="0 0 80 80">
+        <!-- Anneau extérieur rose = séances -->
+        <circle cx="40" cy="40" r="34" fill="none" stroke="var(--rose-light)" stroke-width="8"/>
+        <circle cx="40" cy="40" r="34" fill="none" stroke="var(--rose)" stroke-width="8"
+          stroke-dasharray="213.6" stroke-dashoffset="149.5"
+          stroke-linecap="round" transform="rotate(-90 40 40)"/>
+        <!-- Anneau intérieur sauge = kcal -->
+        <circle cx="40" cy="40" r="24" fill="none" stroke="var(--sauge-light)" stroke-width="7"/>
+        <circle cx="40" cy="40" r="24" fill="none" stroke="var(--sauge)" stroke-width="7"
+          stroke-dasharray="150.8" stroke-dashoffset="90.5"
+          stroke-linecap="round" transform="rotate(-90 40 40)"/>
+      </svg>
+      <div class="donut-center"><div class="donut-center-val">2/3</div><div class="donut-center-lbl">séances</div></div>
+    </div>
+    <div class="donut-legend">
+      <div class="donut-legend-item">
+        <div class="donut-dot" style="background:var(--rose)"></div>
+        <div>
+          <div class="donut-legend-val">2 <span style="font-size:11px;font-weight:600;color:var(--text-soft)">/ 3 objectif</span></div>
+          <div class="donut-legend-lbl">Séances cette semaine</div>
+        </div>
+      </div>
+      <div class="donut-legend-item">
+        <div class="donut-dot" style="background:var(--sauge)"></div>
+        <div>
+          <div class="donut-legend-val">480 <span style="font-size:11px;font-weight:600;color:var(--text-soft)">/ 800 kcal</span></div>
+          <div class="donut-legend-lbl">Calories brûlées</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Historique des séances -->
+  <div class="section-row"><span class="section-title">Mes séances</span></div>
+  <div id="historique-seances"></div>
+
+  <!-- Mes pas -->
+  <div class="section-row" style="margin-top:6px"><span class="section-title">🚶‍♀️ Mes pas</span><span style="font-size:11px;font-weight:600;color:var(--text-soft)" id="pas-total-semaine">0 pas cette semaine</span></div>
+  <div style="margin:0 18px 20px;background:var(--white);border-radius:var(--radius);border:1.5px solid var(--border);padding:14px 16px;box-shadow:var(--shadow-sm)">
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:12px" id="pas-grid-sport"></div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <div style="flex:1">
+        <div style="font-size:9px;font-weight:800;color:var(--text-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Ajouter les pas d'aujourd'hui</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="pas-sport-input" type="number" inputmode="numeric" placeholder="ex: 8 500"
+            style="flex:1;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:8px 10px;font-size:14px;font-weight:800;color:var(--text);font-family:var(--font);outline:none">
+          <button onclick="savePasSport()" style="background:var(--terra);color:#fff;border:none;border-radius:10px;padding:9px 14px;font-size:12px;font-weight:800;font-family:var(--font);cursor:pointer;white-space:nowrap">Enregistrer ✓</button>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:11px;font-weight:600;color:var(--text-soft)">Objectif journalier</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="changePasObjectif(-1000)" style="width:26px;height:26px;border-radius:8px;border:none;background:var(--terra-light);color:var(--terra);font-size:14px;font-weight:800;cursor:pointer;font-family:var(--font)">−</button>
+        <span style="font-size:13px;font-weight:900;color:var(--text)" id="pas-objectif-lbl">8 000 pas</span>
+        <button onclick="changePasObjectif(1000)" style="width:26px;height:26px;border-radius:8px;border:none;background:var(--terra-light);color:var(--terra);font-size:14px;font-weight:800;cursor:pointer;font-family:var(--font)">+</button>
+      </div>
+    </div>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════
-     SCREEN SUIVI (placeholder)
-     ═══════════════════════════════════════════ -->
+
+
+<!-- ════════════════════════════════════════
+     SCREEN SUIVI
+     ════════════════════════════════════════ -->
 <div class="screen" id="screen-suivi">
-  <div style="padding:80px 18px 20px;text-align:center">
-    <div style="font-size:48px;margin-bottom:16px">📏</div>
-    <div style="font-size:20px;font-weight:900;color:var(--text)">Suivi</div>
-    <div style="font-size:14px;color:var(--text-soft);margin-top:8px">→ Partie suivante</div>
+  <div class="page-header">
+    <div class="page-sub">Mon évolution</div>
+    <div class="page-title">Suivi corporel 📏</div>
+    <div class="page-desc">Pesez-vous le matin à jeun, dans les mêmes conditions.</div>
+  </div>
+
+  <!-- Poids hero -->
+  <div class="poids-card">
+    <div class="pc-row">
+      <div class="pc-left">
+        <div class="pc-label">Poids actuel</div>
+        <div class="pc-val" id="pc-val">— kg</div>
+        <div class="pc-sub">Pesée ce matin à jeun</div>
+        <div class="pc-delta" id="pc-delta" style="display:none">
+          <span style="font-size:13px" id="pc-delta-arrow">↓</span>
+          <span class="pc-delta-val" id="pc-delta-val"></span>
+        </div>
+      </div>
+      <div class="pc-right">
+        <div class="pc-obj-label">Objectif</div>
+        <div class="pc-obj-val">60 kg</div>
+        <div class="pc-obj-sub" id="pc-reste">−15 kg restants</div>
+      </div>
+    </div>
+    <div class="sparkline-wrap">
+      <div class="sparkline-header">
+        <div class="sparkline-title">Évolution du poids</div>
+        <div class="sparkline-range" id="sparkline-nb">— mesures</div>
+      </div>
+      <svg id="sparkline-svg" width="100%" height="48" viewBox="0 0 280 48" preserveAspectRatio="none">
+        <text x="140" y="28" text-anchor="middle" font-size="11" fill="rgba(255,255,255,.4)" font-family="Nunito">Ajoutez votre première mesure</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Saisie -->
+  <div class="saisie-card">
+    <div class="saisie-title">➕ Nouvelle mesure</div>
+    <div class="saisie-grid">
+      <div class="saisie-field">
+        <div class="saisie-label">Poids</div>
+        <div class="saisie-input-row"><input class="saisie-input" id="inp-poids" placeholder="75.0" type="number" step="0.1" inputmode="decimal"><span class="saisie-unit">kg</span></div>
+      </div>
+      <div class="saisie-field">
+        <div class="saisie-label">Taille</div>
+        <div class="saisie-input-row"><input class="saisie-input" id="inp-taille" placeholder="80" type="number" step="0.5" inputmode="decimal"><span class="saisie-unit">cm</span></div>
+      </div>
+      <div class="saisie-field">
+        <div class="saisie-label">Hanches</div>
+        <div class="saisie-input-row"><input class="saisie-input" id="inp-hanches" placeholder="100" type="number" step="0.5" inputmode="decimal"><span class="saisie-unit">cm</span></div>
+      </div>
+      <div class="saisie-field">
+        <div class="saisie-label">Cuisses</div>
+        <div class="saisie-input-row"><input class="saisie-input" id="inp-cuisses" placeholder="60" type="number" step="0.5" inputmode="decimal"><span class="saisie-unit">cm</span></div>
+      </div>
+      <div class="saisie-field">
+        <div class="saisie-label">Bras</div>
+        <div class="saisie-input-row"><input class="saisie-input" id="inp-bras" placeholder="28" type="number" step="0.5" inputmode="decimal"><span class="saisie-unit">cm</span></div>
+      </div>
+      <div class="saisie-field">
+        <div class="saisie-label">Poitrine</div>
+        <div class="saisie-input-row"><input class="saisie-input" id="inp-poitrine" placeholder="90" type="number" step="0.5" inputmode="decimal"><span class="saisie-unit">cm</span></div>
+      </div>
+    </div>
+    <button class="btn-save" onclick="saveMeasure()">Enregistrer ✓</button>
+  </div>
+
+  <!-- Mensurations cards -->
+  <div class="section-row"><span class="section-title">Mes mensurations</span><span style="font-size:11px;font-weight:600;color:var(--text-soft)">Début → Actuel</span></div>
+  <div class="mens-grid" id="mens-grid">
+    <div style="grid-column:span 2;text-align:center;padding:20px;color:var(--text-soft);font-size:13px">Ajoutez des mesures pour voir l'évolution</div>
+  </div>
+
+  <!-- Historique -->
+  <div class="section-row"><span class="section-title">Historique</span></div>
+  <div class="history-list" id="history-list">
+    <div style="text-align:center;padding:20px;color:var(--text-soft);font-size:13px">Aucune mesure enregistrée</div>
   </div>
 </div>
+
+
 
 <!-- ═══════════════════════════════════════════
      WEEK OVERLAY
@@ -1178,12 +1647,105 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg);overflo
   </div>
 </div>
 
-<!-- NAVBAR -->
+
+
+<!-- ════════════════════════════════════════
+     SPORT OVERLAY — BIBLIOTHÈQUE
+     ════════════════════════════════════════ -->
+<div class="sport-screen" id="biblio-screen">
+  <div class="back-bar">
+    <button class="back-btn" onclick="closeBibliotheque()">←</button>
+    <span class="back-title">Bibliothèque</span>
+  </div>
+  <!-- Recherche -->
+  <div class="biblio-search">
+    <span style="font-size:16px">🔍</span>
+    <input id="biblio-search" placeholder="Rechercher un exercice..." oninput="filterExos()">
+  </div>
+  <!-- Stats -->
+  <div class="biblio-stats">
+    <div class="biblio-stat"><div class="biblio-stat-val">63</div><div class="biblio-stat-lbl">Exercices</div></div>
+    <div class="biblio-stat"><div class="biblio-stat-val">7</div><div class="biblio-stat-lbl">Groupes</div></div>
+    <div class="biblio-stat"><div class="biblio-stat-val" id="fav-count">0</div><div class="biblio-stat-lbl">Favoris</div></div>
+  </div>
+  <!-- Grille groupes musculaires -->
+  <div id="biblio-content"></div>
+</div>
+
+<!-- ════════════════════════════════════════
+     SPORT OVERLAY — GROUPE MUSCULAIRE
+     ════════════════════════════════════════ -->
+<div class="sport-screen" id="groupe-screen">
+  <div class="back-bar">
+    <button class="back-btn" onclick="closeGroupe()">←</button>
+    <span class="back-title" id="groupe-title">Jambes</span>
+  </div>
+  <div id="groupe-content"></div>
+</div>
+
+<!-- ════════════════════════════════════════
+     SPORT OVERLAY — LOG SÉANCE
+     ════════════════════════════════════════ -->
+<div class="sport-screen" id="log-screen">
+  <div class="back-bar">
+    <button class="back-btn" onclick="closeLogSeance()">←</button>
+    <span class="back-title">Ma séance</span>
+    <div class="log-timer" id="log-timer">00:00</div>
+  </div>
+
+  <!-- Hero stats séance -->
+  <div class="log-hero">
+    <div class="log-hero-stats">
+      <div class="lhs"><div class="lhs-val" id="log-duree">0 min</div><div class="lhs-lbl">Durée</div></div>
+      <div class="lhs"><div class="lhs-val" id="log-kcal">0</div><div class="lhs-lbl">kcal</div></div>
+      <div class="lhs"><div class="lhs-val" id="log-exos">0</div><div class="lhs-lbl">Exercices</div></div>
+    </div>
+  </div>
+
+  <!-- Boutons ajouter -->
+  <div class="log-add-btns">
+    <button class="log-add-btn lab-muscu" onclick="openExoPicker()">💪 Ajouter muscu</button>
+    <button class="log-add-btn lab-cardio" onclick="openCardioPicker()">❤️ Ajouter cardio</button>
+  </div>
+
+  <!-- Exercices logués -->
+  <div id="log-exercises"></div>
+
+  <!-- Auto-évaluation -->
+  <div class="eval-section">
+    <div class="eval-title">Comment tu t'es sentie ?</div>
+    <div class="eval-smileys">
+      <button class="eval-btn" onclick="selectEval('terrible')" id="ev-terrible">
+        <div class="eval-emoji">😫</div><div class="eval-txt">Difficile</div>
+      </button>
+      <button class="eval-btn" onclick="selectEval('moyen')" id="ev-moyen">
+        <div class="eval-emoji">😕</div><div class="eval-txt">Moyen</div>
+      </button>
+      <button class="eval-btn" onclick="selectEval('bien')" id="ev-bien">
+        <div class="eval-emoji">😊</div><div class="eval-txt">Bien</div>
+      </button>
+      <button class="eval-btn" onclick="selectEval('super')" id="ev-super">
+        <div class="eval-emoji">😄</div><div class="eval-txt">Super</div>
+      </button>
+      <button class="eval-btn" onclick="selectEval('top')" id="ev-top">
+        <div class="eval-emoji">🤩</div><div class="eval-txt">Top !</div>
+      </button>
+    </div>
+    <textarea class="eval-note" id="eval-note" rows="2" placeholder="Note libre : douleurs, progrès, ressenti..."></textarea>
+  </div>
+
+  <!-- Boutons finaux -->
+  <button class="save-seance-btn" onclick="saveSeance()">✓ Enregistrer · <span id="save-btn-info">0 min · 0 kcal</span></button>
+  <button class="share-seance-btn" onclick="shareSeance()">Partager cette séance</button>
+</div>
+
+
+
 <nav class="nav">
-  <button class="nav-btn" id="nav-home" onclick="goScreen('screen-home')">
+  <button class="nav-btn active" id="nav-home" onclick="goScreen('screen-home')">
     <span class="nav-icon">🏠</span><span class="nav-label">Accueil</span><div class="nav-dot"></div>
   </button>
-  <button class="nav-btn active" id="nav-prog" onclick="goScreen('screen-prog')">
+  <button class="nav-btn" id="nav-prog" onclick="goScreen('screen-prog')">
     <span class="nav-icon">🥗</span><span class="nav-label">Programme</span><div class="nav-dot"></div>
   </button>
   <button class="nav-btn" id="nav-sport" onclick="goScreen('screen-sport')">
@@ -1195,6 +1757,429 @@ body{min-height:100vh;max-width:430px;margin:0 auto;background:var(--bg);overflo
 </nav>
 
 <script>
+// ── CONSTANTES ────────────────────────────────────────────────────────────────
+const GOAL_LOSS = 15, START_WEIGHT = 75;
+const MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const DAYS_FR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+const MONTHS_LONG = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+let calYear = new Date().getFullYear(), calMonth = new Date().getMonth();
+let showStartPicker = false, selectedCalDate = null;
+let cmpEditIndex = -1, cmpGender = 'F', cmpEmoji = '👩';
+let pendingEventName = '', pendingEventDate = '', selectedImpact = null;
+
+// ── STORAGE ───────────────────────────────────────────────────────────────────
+function gS(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}}
+function sS(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
+
+let measures    = gS('measures', []);
+let waterData   = gS('waterData', {});
+let companions  = gS('companions', []);
+let events      = gS('calEvents', []);
+let startDate   = gS('startDate', null);
+let pasData     = gS('pasData', {});
+let moodToday   = gS('moodToday', {});
+let cycleData   = gS('cycleData', {regles:null, ovulation:null});
+
+// ── NAV ───────────────────────────────────────────────────────────────────────
+function goScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const map = {'screen-home':'nav-home','screen-prog':'nav-prog','screen-sport':'nav-sport','screen-suivi':'nav-suivi'};
+  if(map[id]) document.getElementById(map[id]).classList.add('active');
+  if(id === 'screen-home') renderHome();
+}
+
+// ── DATE DU JOUR ──────────────────────────────────────────────────────────────
+function renderDate() {
+  const now = new Date();
+  const el = document.getElementById('home-date');
+  if(el) el.textContent = DAYS_FR[now.getDay()] + ' ' + now.getDate() + ' ' + MONTHS_LONG[now.getMonth()];
+}
+
+// ── MOOD HOME ─────────────────────────────────────────────────────────────────
+const MOOD_KEYS = ['bad','meh','ok','good','great'];
+function todayKey() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function selectMoodHome(key) {
+  moodToday[todayKey()] = key;
+  sS('moodToday', moodToday);
+  MOOD_KEYS.forEach(k => {
+    const btn = document.getElementById('mb-'+k);
+    const wrap = document.getElementById('mw-'+k);
+    if(btn) btn.classList.toggle('active', k===key);
+    if(wrap) wrap.parentElement.classList.toggle('active', k===key);
+  });
+  showToast('Humeur enregistrée ✓');
+}
+function restoreMoodHome() {
+  const saved = moodToday[todayKey()];
+  if(saved) selectMoodHome(saved);
+}
+
+// ── HERO PROGRESSION ─────────────────────────────────────────────────────────
+function renderHero() {
+  const last = measures.length ? measures[measures.length-1] : null;
+  const lost = last ? Math.max(0, START_WEIGHT - parseFloat(last.poids)) : 3.5;
+  const pct = Math.min(100, Math.round((lost / GOAL_LOSS) * 100));
+  const circ = 175.9;
+  const rf = document.getElementById('ring-fill');
+  if(rf) rf.style.strokeDashoffset = circ - (circ * pct / 100);
+  const rp = document.getElementById('ring-pct');
+  if(rp) rp.textContent = pct + '%';
+  const hl = document.getElementById('hero-lost');
+  if(hl) hl.textContent = lost.toFixed(1) + ' kg perdus';
+  const hb = document.getElementById('hero-bar');
+  if(hb) hb.style.width = pct + '%';
+}
+
+// ── EAU ───────────────────────────────────────────────────────────────────────
+const WATER_ML = 250;
+function getTodayWater() {
+  const k = todayKey();
+  if(!waterData[k]) waterData[k] = {glasses:0, goal:8};
+  return waterData[k];
+}
+function renderWater() {
+  const today = getTodayWater();
+  const container = document.getElementById('water-glasses-home');
+  if(!container) return;
+  let html = '';
+  for(let i=0; i<today.goal; i++) {
+    html += `<div class="glass${i<today.glasses?' on':''}" onclick="toggleGlass(${i})"></div>`;
+  }
+  container.innerHTML = html;
+  const ec = document.getElementById('eau-count');
+  if(ec) ec.textContent = today.glasses;
+}
+function toggleGlass(i) {
+  const today = getTodayWater();
+  today.glasses = (today.glasses === i+1) ? i : i+1;
+  sS('waterData', waterData);
+  renderWater();
+}
+
+// ── PAS ───────────────────────────────────────────────────────────────────────
+function savePasHome() {
+  const val = parseInt(document.getElementById('pas-home').value) || 0;
+  pasData['today-' + todayKey()] = val;
+  sS('pasData', pasData);
+  const sub = document.getElementById('pas-sub-home');
+  if(sub) sub.textContent = val.toLocaleString('fr-FR') + ' pas aujourd\'hui';
+  showToast('Pas enregistrés ✓');
+}
+function restorePas() {
+  const val = pasData['today-' + todayKey()] || 0;
+  const field = document.getElementById('pas-home');
+  if(field && val) { field.value = val; }
+  const sub = document.getElementById('pas-sub-home');
+  if(sub && val) sub.textContent = val.toLocaleString('fr-FR') + ' pas aujourd\'hui';
+}
+
+// ── COMPAGNONS ────────────────────────────────────────────────────────────────
+function calcTarget(poids, taille, genre) {
+  const age = 30;
+  const bmr = genre==='F' ? 10*poids+6.25*taille-5*age-161 : 10*poids+6.25*taille-5*age+5;
+  return Math.round(bmr*1.4-400);
+}
+function renderCompanions() {
+  const scroll = document.getElementById('companions-scroll');
+  if(!scroll) return;
+  let html = '';
+  companions.forEach((c,i) => {
+    const kcal = c.poids&&c.taille ? calcTarget(parseFloat(c.poids), parseFloat(c.taille), c.genre) : 0;
+    html += `<div class="companion-bubble" onclick="openCmpModal(${i})">
+      <div class="companion-avatar" style="background:linear-gradient(135deg,var(--rose-light),var(--violet-light))">${c.emoji||'👤'}</div>
+      <div class="companion-name">${c.name}</div>
+      ${kcal ? `<div class="companion-kcal">${kcal} kcal</div>` : ''}
+    </div>`;
+  });
+  html += `<button class="add-companion-btn" onclick="openCmpModal(-1)">
+    <div class="add-companion-icon">+</div>
+    <span class="add-companion-label">Ajouter</span>
+  </button>`;
+  scroll.innerHTML = html;
+}
+
+const EMOJI_LIST = ['👨','👩','🧑','🧔','👱','🧑‍🦰','🦁','🐻','🐼','🦊','🌸','⭐','💪','🎉','🍀'];
+function openCmpModal(idx) {
+  cmpEditIndex = idx;
+  const isEdit = idx >= 0;
+  document.getElementById('cmp-modal-title').textContent = isEdit ? 'Modifier le profil' : 'Ajouter un compagnon';
+  const picker = document.getElementById('emoji-picker');
+  picker.innerHTML = EMOJI_LIST.map((e,i) =>
+    `<div class="emoji-opt${i===0?' selected':''}" onclick="selectEmoji('${e}',this)">${e}</div>`
+  ).join('');
+  cmpEmoji = EMOJI_LIST[0]; cmpGender = 'F';
+  if(isEdit) {
+    const c = companions[idx];
+    document.getElementById('cmp-name').value = c.name||'';
+    document.getElementById('cmp-poids').value = c.poids||'';
+    document.getElementById('cmp-taille').value = c.taille||'';
+    document.getElementById('cmp-objectif').value = c.objectif||'';
+    cmpGender = c.genre||'F'; cmpEmoji = c.emoji||EMOJI_LIST[0];
+    picker.querySelectorAll('.emoji-opt').forEach(el => {
+      el.classList.toggle('selected', el.textContent === cmpEmoji);
+    });
+  } else {
+    ['cmp-name','cmp-poids','cmp-taille','cmp-objectif'].forEach(id => document.getElementById(id).value='');
+  }
+  document.getElementById('gb-f').className = 'gender-btn' + (cmpGender==='F'?' selected':'');
+  document.getElementById('gb-m').className = 'gender-btn' + (cmpGender==='H'?' selected':'');
+  document.getElementById('cmp-delete-btn').style.display = isEdit ? 'block' : 'none';
+  document.getElementById('cmp-modal').classList.add('open');
+}
+function selectEmoji(e, el) {
+  cmpEmoji = e;
+  document.querySelectorAll('.emoji-opt').forEach(x => x.classList.remove('selected'));
+  el.classList.add('selected');
+}
+function selectGender(g) {
+  cmpGender = g;
+  document.getElementById('gb-f').className = 'gender-btn' + (g==='F'?' selected':'');
+  document.getElementById('gb-m').className = 'gender-btn' + (g==='H'?' selected':'');
+}
+function saveCompanion() {
+  const name = document.getElementById('cmp-name').value.trim();
+  if(!name) { showToast('Entrez un prénom'); return; }
+  const c = { name, emoji:cmpEmoji, genre:cmpGender,
+    poids:document.getElementById('cmp-poids').value,
+    taille:document.getElementById('cmp-taille').value,
+    objectif:document.getElementById('cmp-objectif').value };
+  if(cmpEditIndex>=0) companions[cmpEditIndex]=c; else companions.push(c);
+  sS('companions', companions);
+  closeCmpModal(); renderCompanions();
+  showToast(cmpEditIndex>=0 ? 'Profil mis à jour ✓' : 'Compagnon ajouté ✓');
+}
+function deleteCompanion() {
+  if(cmpEditIndex<0) return;
+  const name = companions[cmpEditIndex]?.name || 'ce compagnon';
+  companions.splice(cmpEditIndex,1);
+  sS('companions',companions);
+  closeCmpModal(); renderCompanions();
+  showToast(name + ' supprimé ✓');
+}
+function closeCmpModal() { document.getElementById('cmp-modal').classList.remove('open'); }
+function closeCmpIfBackdrop(e) { if(e.target===document.getElementById('cmp-modal')) closeCmpModal(); }
+
+// ── CYCLE ─────────────────────────────────────────────────────────────────────
+function openCycleModal() {
+  if(cycleData.regles) document.getElementById('cycle-regles').value = cycleData.regles;
+  if(cycleData.reglesEnd) document.getElementById('cycle-regles-end').value = cycleData.reglesEnd;
+  if(cycleData.ovulation) document.getElementById('cycle-ovulation').value = cycleData.ovulation;
+  if(cycleData.ovulationEnd) document.getElementById('cycle-ovulation-end').value = cycleData.ovulationEnd;
+  document.getElementById('cycle-modal').classList.add('open');
+}
+function closeCycleModal() {
+  document.getElementById('cycle-modal').classList.remove('open');
+  renderCycleCard();
+}
+function closeCycleIfBackdrop(e) { if(e.target===document.getElementById('cycle-modal')) closeCycleModal(); }
+function saveCycleDates() {
+  cycleData.regles = document.getElementById('cycle-regles').value || null;
+  cycleData.reglesEnd = document.getElementById('cycle-regles-end').value || null;
+  cycleData.ovulation = document.getElementById('cycle-ovulation').value || null;
+  cycleData.ovulationEnd = document.getElementById('cycle-ovulation-end').value || null;
+  sS('cycleData', cycleData);
+}
+function getCyclePhase() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  if(cycleData.regles) {
+    const r = new Date(cycleData.regles); r.setHours(0,0,0,0);
+    const rEnd = cycleData.reglesEnd ? new Date(cycleData.reglesEnd) : new Date(r.getTime()+6*86400000);
+    rEnd.setHours(23,59,59,0);
+    const rStart = new Date(r.getTime()-2*86400000);
+    if(today>=rStart && today<=rEnd) return {type:'regles', daysLeft:Math.max(0,Math.round((rEnd-today)/86400000))};
+  }
+  if(cycleData.ovulation) {
+    const o = new Date(cycleData.ovulation); o.setHours(0,0,0,0);
+    const oEnd = cycleData.ovulationEnd ? new Date(cycleData.ovulationEnd) : new Date(o.getTime()+4*86400000);
+    oEnd.setHours(23,59,59,0);
+    const oStart = new Date(o.getTime()-1*86400000);
+    if(today>=oStart && today<=oEnd) return {type:'ovulation', daysLeft:Math.max(0,Math.round((oEnd-today)/86400000))};
+  }
+  return null;
+}
+function renderCycleCard() {
+  const card = document.getElementById('cycle-home-card');
+  if(!card) return;
+  if(!cycleData.regles && !cycleData.ovulation) {
+    card.innerHTML = `<div class="cycle-card-home" onclick="openCycleModal()">
+      <div style="font-size:24px">🌙</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:800;color:var(--text)">Configurer mon cycle</div>
+      <div style="font-size:11px;color:var(--text-soft);margin-top:2px">Adaptez le programme à votre cycle</div></div>
+      <div style="font-size:16px;color:var(--violet);font-weight:800">›</div>
+    </div>`;
+    return;
+  }
+  const phase = getCyclePhase();
+  if(phase) {
+    const isR = phase.type==='regles';
+    card.innerHTML = `<div class="cycle-card-home" style="background:${isR?'var(--rose-light)':'var(--terra-light)'};border-color:${isR?'var(--rose-border)':'var(--terra-border)'}" onclick="openCycleModal()">
+      <div style="font-size:22px">${isR?'🩷':'✨'}</div>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:800;color:${isR?'var(--rose)':'var(--terra)'}">${isR?`Semaine règles · encore ${phase.daysLeft}j`:`Semaine ovulation · encore ${phase.daysLeft}j`}</div>
+        <div style="font-size:11px;color:var(--text-soft);margin-top:2px">${isR?'Besoins en fer et magnésium augmentés':'Énergie au top — profitez-en !'}</div>
+      </div>
+      <div style="font-size:16px;color:${isR?'var(--rose)':'var(--terra)'};font-weight:800">›</div>
+    </div>`;
+  } else {
+    const nextDate = cycleData.regles ? new Date(cycleData.regles).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) : null;
+    card.innerHTML = `<div class="cycle-card-home" onclick="openCycleModal()">
+      <div style="font-size:22px">🌙</div>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:700;color:var(--violet)">Cycle configuré</div>
+        <div style="font-size:11px;color:var(--text-soft);margin-top:2px">${nextDate?'Prochaines règles le '+nextDate:'Tout va bien cette semaine'}</div>
+      </div>
+      <div style="font-size:16px;color:var(--violet);font-weight:800">›</div>
+    </div>`;
+  }
+}
+
+// ── CALENDRIER ────────────────────────────────────────────────────────────────
+function prevMonth() { calMonth--; if(calMonth<0){calMonth=11;calYear--;} renderCalendar(); }
+function nextMonth() { calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderCalendar(); }
+function renderCalendar() {
+  document.getElementById('cal-month-label').textContent = MONTHS_FR[calMonth] + ' ' + calYear;
+  const grid = document.getElementById('cal-grid');
+  const today = new Date();
+  const firstDay = new Date(calYear, calMonth, 1);
+  const startOffset = (firstDay.getDay()+6)%7;
+  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+  const startD = startDate ? new Date(startDate) : null;
+  let html = '';
+  for(let i=0; i<startOffset; i++) html += `<div class="cal-cell empty"></div>`;
+  for(let d=1; d<=daysInMonth; d++) {
+    const ds = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = today.getDate()===d && today.getMonth()===calMonth && today.getFullYear()===calYear;
+    const isStart = startD && startD.getDate()===d && startD.getMonth()===calMonth && startD.getFullYear()===calYear;
+    const hasEv = events.some(e=>e.date===ds);
+    const inProg = startD && new Date(ds)>=startD && new Date(ds)<=new Date(startD.getTime()+84*86400000);
+    let cls = 'cal-cell' + (isStart?' start-day':isToday?' today':inProg?' in-program':'') + (hasEv?' event':'');
+    html += `<div class="${cls}" onclick="selectCalDate('${ds}')">${d}</div>`;
+  }
+  grid.innerHTML = html;
+  renderEventsList();
+}
+function selectCalDate(ds) {
+  selectedCalDate = ds;
+  const p = ds.split('-');
+  document.getElementById('event-input').placeholder = `Événement le ${p[2]}/${p[1]}...`;
+  document.getElementById('event-input').focus();
+}
+function toggleStartPicker() {
+  showStartPicker = !showStartPicker;
+  document.getElementById('start-picker').style.display = showStartPicker ? 'block' : 'none';
+  if(startDate) document.getElementById('start-date-input').value = startDate;
+}
+function setStartDate(v) {
+  startDate = v; sS('startDate', v);
+  showToast('Date de démarrage enregistrée ✓');
+  renderCalendar();
+}
+function renderEventsList() {
+  const el = document.getElementById('events-list'); if(!events.length){el.innerHTML='';return;}
+  el.innerHTML = [...events].sort((a,b)=>a.date.localeCompare(b.date)).map((e,i) => {
+    const orig = events.findIndex(x=>x.date===e.date&&x.name===e.name);
+    const p = e.date.split('-');
+    const icon = e.impact ? ({pdj:'☀️',col:'🍎',dej:'🥗',din:'🌙',all:'🎉'}[e.impact]||'') : '';
+    return `<div class="event-item">
+      <div class="event-dot"></div>
+      <span class="event-date">${p[2]}/${p[1]}</span>
+      <span class="event-name">${icon} ${e.name}</span>
+      <button class="event-del" onclick="deleteEvent(${orig})">×</button>
+    </div>`;
+  }).join('');
+}
+function deleteEvent(i) { events.splice(i,1); sS('calEvents',events); renderCalendar(); }
+
+// ── ÉVÉNEMENT IMPACT ─────────────────────────────────────────────────────────
+const IMPACT_CHOICES = [
+  {id:'pdj', icon:'☀️', label:'Petit-déjeuner',     sub:'Repas du matin impacté'},
+  {id:'col', icon:'🍎', label:'Collations',           sub:'Collations matin et/ou après-midi'},
+  {id:'dej', icon:'🥗', label:'Déjeuner',             sub:'Repas du midi impacté'},
+  {id:'din', icon:'🌙', label:'Dîner',                sub:'Repas du soir impacté'},
+  {id:'all', icon:'🎉', label:'Toute la journée',     sub:'Événement sur la journée entière'},
+];
+const IMPACT_TIPS = {
+  pdj: 'Optez pour des œufs brouillés, un yaourt grec + fruits, ou flocons d\'avoine. Évitez les viennoiseries.',
+  col: 'Chocolat noir 85%, une poignée d\'amandes, ou un fruit. Chez des amis : fromage + quelques noix.',
+  dej: 'Au resto : grillades ou poissons avec légumes, évitez les sauces. Si repas de fête : savourez sans culpabilité.',
+  din: 'Misez sur des protéines maigres + légumes. Si après 21h, gardez une portion réduite.',
+  all: 'Accordez-vous ce plaisir pleinement ! Avant, mangez un petit-déj protéiné. Reprenez normalement le lendemain.',
+};
+function addEvent() {
+  const input = document.getElementById('event-input');
+  const name = input.value.trim(); if(!name) return;
+  const date = selectedCalDate || `${calYear}-${String(calMonth+1).padStart(2,'0')}-01`;
+  pendingEventName = name; pendingEventDate = date; selectedImpact = null;
+  const p = date.split('-');
+  document.getElementById('event-impact-date').textContent = `"${name}" — le ${p[2]}/${p[1]}/${p[0]}`;
+  document.getElementById('event-impact-choices').innerHTML = IMPACT_CHOICES.map(c =>
+    `<div class="impact-choice" id="ic-${c.id}" onclick="selectImpact('${c.id}')">
+      <span class="impact-choice-icon">${c.icon}</span>
+      <div><div class="impact-choice-label">${c.label}</div><div class="impact-choice-sub">${c.sub}</div></div>
+    </div>`
+  ).join('');
+  document.getElementById('event-impact-tip').style.display = 'none';
+  document.getElementById('event-impact-save').style.display = 'none';
+  document.getElementById('event-impact-modal').classList.add('open');
+  input.value = ''; selectedCalDate = null; input.placeholder = 'Ajouter un événement...';
+}
+function selectImpact(id) {
+  selectedImpact = id;
+  document.querySelectorAll('.impact-choice').forEach(el => el.classList.remove('selected'));
+  document.getElementById('ic-'+id).classList.add('selected');
+  const tipEl = document.getElementById('event-impact-tip');
+  tipEl.style.display = 'block';
+  tipEl.textContent = '💡 ' + IMPACT_TIPS[id];
+  document.getElementById('event-impact-save').style.display = 'block';
+}
+function saveEventWithImpact() {
+  events.push({date:pendingEventDate, name:pendingEventName, impact:selectedImpact});
+  sS('calEvents', events);
+  closeEventImpactModal();
+  showToast('Événement ajouté ✓');
+  renderCalendar();
+}
+function closeEventImpactModal() { document.getElementById('event-impact-modal').classList.remove('open'); }
+function closeEventImpactIfBackdrop(e) { if(e.target===document.getElementById('event-impact-modal')) closeEventImpactModal(); }
+
+// ── RENDER HOME ───────────────────────────────────────────────────────────────
+function renderHome() {
+  renderDate();
+  renderHero();
+  renderWater();
+  restorePas();
+  restoreMoodHome();
+  renderCompanions();
+  renderCycleCard();
+  renderCalendar();
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+renderHome();
+// Animation de la progression au chargement
+setTimeout(() => {
+  const last = measures.length ? measures[measures.length-1] : null;
+  const lost = last ? Math.max(0, START_WEIGHT - parseFloat(last.poids)) : 3.5;
+  const pct = Math.min(100, Math.round((lost/GOAL_LOSS)*100));
+  const circ = 175.9;
+  const rf = document.getElementById('ring-fill');
+  if(rf) rf.style.strokeDashoffset = circ - (circ*pct/100);
+  const hb = document.getElementById('hero-bar');
+  if(hb) hb.style.width = pct + '%';
+}, 100);
+
 // ══════════════════════════════════════════════════════
 //  DONNÉES FICTIVES — semaine de test complète
 // ══════════════════════════════════════════════════════
@@ -1322,7 +2307,8 @@ const BANK_RECIPES = [
 //  CONSTANTES & STORAGE
 // ══════════════════════════════════════════════════════
 const DAYS_ORDER = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
-const MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+// [dup] MONTHS_FR
+
 
 function gS(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}}
 function sS(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
@@ -2077,1988 +3063,19 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
 // ══════════════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════════════
-renderProg();
-goScreen('screen-prog');
-</script>
-<!-- ═══ MODAL — PICKER EXERCICE MUSCU ═══ -->
-<div class="modal-overlay" id="exo-picker-modal">
-  <div class="modal-sheet" style="position:relative">
-    <div class="modal-handle"></div>
-    <button class="modal-close-btn" onclick="document.getElementById('exo-picker-modal').classList.remove('open')">✕</button>
-    <div id="exo-picker-list"></div>
-  </div>
-</div>
+// handled by init;
 
-<!-- ═══ MODAL — PICKER EXERCICE CARDIO ═══ -->
-<!-- ═══ MODAL — PICKER EXERCICE CARDIO ═══ -->
-<div class="modal-overlay" id="cardio-picker-modal">
-  <div class="modal-sheet" style="position:relative">
-    <div class="modal-handle"></div>
-    <button class="modal-close-btn" onclick="document.getElementById('cardio-picker-modal').classList.remove('open')">✕</button>
-    <div id="cardio-picker-list"></div>
-  </div>
-</div>
-
-<!-- ═══ MODAL — DÉTAIL EXERCICE
-<!-- ═══ MODAL — DÉTAIL EXERCICE (explications + astuces) ═══ -->
-<div class="modal-overlay" id="exo-detail-modal" onclick="closeExoDetailIfBackdrop(event)">
-  <div class="modal-sheet" style="position:relative">
-    <div class="modal-handle"></div>
-    <button class="modal-close-btn" onclick="closeExoDetail()">✕</button>
-    <div id="exo-detail-content"></div>
-  </div>
-</div>
-
-<!-- ═══ MODAL — DÉTAIL SÉANCE
-<!-- ═══ MODAL — DÉTAIL SÉANCE (exercices + charges) ═══ -->
-<div class="modal-overlay" id="seance-detail-modal" onclick="closeSeanceDetailIfBackdrop(event)">
-  <div class="modal-sheet" style="position:relative">
-    <div class="modal-handle"></div>
-    <button class="modal-close-btn" onclick="closeSeanceDetail()">✕</button>
-    <div id="seance-detail-content"></div>
-  </div>
-</div>
-
-<div class="toast" id="toast">
-<div class="toast" id="toast"></div>
-
-
-<div class="screen active" id="screen-home">
-
-  <!-- Header -->
-  <div class="page-header">
-    <div class="page-header-left">
-      <div class="page-sub" id="home-greeting">Bonjour Pauline 🌸</div>
-      <div class="page-title" id="home-date">Vendredi 27 juin</div>
-    </div>
-    <div class="page-avatar">🧘</div>
-  </div>
-
-  <!-- Mood -->
-  <div class="mood-card">
-    <div class="mood-title">Comment tu te sens aujourd'hui ?</div>
-    <div class="mood-row">
-      <button class="mood-btn" onclick="selectMoodHome('bad')" id="mb-bad">
-        <div class="mood-emoji-wrap" id="mw-bad">😞</div>
-        <div class="mood-txt">Difficile</div>
-      </button>
-      <button class="mood-btn" onclick="selectMoodHome('meh')" id="mb-meh">
-        <div class="mood-emoji-wrap" id="mw-meh">😕</div>
-        <div class="mood-txt">Moyen</div>
-      </button>
-      <button class="mood-btn" onclick="selectMoodHome('ok')" id="mb-ok">
-        <div class="mood-emoji-wrap" id="mw-ok">🙂</div>
-        <div class="mood-txt">Bien</div>
-      </button>
-      <button class="mood-btn" onclick="selectMoodHome('good')" id="mb-good">
-        <div class="mood-emoji-wrap" id="mw-good">😄</div>
-        <div class="mood-txt">Super</div>
-      </button>
-      <button class="mood-btn" onclick="selectMoodHome('great')" id="mb-great">
-        <div class="mood-emoji-wrap" id="mw-great">🤩</div>
-        <div class="mood-txt">Top !</div>
-      </button>
-    </div>
-  </div>
-
-  <!-- Hero Card -->
-  <div class="hero-card">
-    <div class="hero-top">
-      <div class="hero-text">
-        <div class="hero-label">Ma progression — 12 semaines</div>
-        <div class="hero-val" id="hero-lost">3.5 kg perdus</div>
-        <div class="hero-sub">Objectif : −15 kg 💪</div>
-      </div>
-      <div class="hero-ring">
-        <svg width="66" height="66" viewBox="0 0 66 66">
-          <circle class="ring-bg" cx="33" cy="33" r="28"/>
-          <circle class="ring-fill" id="ring-fill" cx="33" cy="33" r="28"
-            stroke-dasharray="175.9" stroke-dashoffset="175.9"/>
-        </svg>
-        <div class="ring-center" id="ring-pct">23%</div>
-      </div>
-    </div>
-    <div class="hero-bar-wrap">
-      <div class="hero-bar-fill" id="hero-bar" style="width:23%"></div>
-    </div>
-  </div>
-
-  <!-- Stats 2×2 -->
-  <div class="stat-grid">
-    <div class="stat-card vl" onclick="goScreen('screen-prog')">
-      <div class="stat-label">Programme</div>
-      <div class="stat-val">Sem. 1</div>
-      <div class="stat-sub">Jour 5 en cours</div>
-    </div>
-    <div class="stat-card te">
-      <div class="stat-label">Streak 🔥</div>
-      <div class="stat-val" id="stat-streak">5 j.</div>
-      <div class="stat-sub">consécutifs</div>
-    </div>
-    <div class="stat-card sg">
-      <div class="stat-label">Repas</div>
-      <div class="stat-val" id="stat-repas">3/5</div>
-      <div class="stat-sub">cochés aujourd'hui</div>
-    </div>
-    <div class="stat-card ja">
-      <div class="stat-label">Badge du jour</div>
-      <div class="stat-val">🏆</div>
-      <div class="stat-sub">5 jours de suite</div>
-    </div>
-  </div>
-
-  <!-- Bubbles -->
-  <div class="bubble vl" onclick="goScreen('screen-prog')">
-    <div class="bubble-icon">📅</div>
-    <div class="bubble-body">
-      <div class="bubble-name">Menus de la semaine</div>
-      <div class="bubble-sub">Semaine 1 · Vendredi</div>
-    </div>
-    <div class="bubble-arrow">›</div>
-  </div>
-
-  <div class="bubble te" onclick="goScreen('screen-sport')">
-    <div class="bubble-icon">💪</div>
-    <div class="bubble-body">
-      <div class="bubble-name">Mon sport</div>
-      <div class="bubble-sub">2 séances cette semaine</div>
-    </div>
-    <div class="bubble-arrow">›</div>
-  </div>
-
-  <div class="bubble sg" onclick="goScreen('screen-suivi')">
-    <div class="bubble-icon">📏</div>
-    <div class="bubble-body">
-      <div class="bubble-name">Mon suivi corporel</div>
-      <div class="bubble-sub">71.5 kg · voir l'évolution</div>
-    </div>
-    <div class="bubble-arrow">›</div>
-  </div>
-
-  <!-- Eau + Pas -->
-  <div class="eau-pas-card">
-    <div class="eau-block">
-      <div class="ep-label">💧 Eau</div>
-      <div class="ep-val-row">
-        <span class="ep-big" id="eau-count">6</span>
-        <span class="ep-unit">/ 8 verres · 1.5 L</span>
-      </div>
-      <div class="glasses-row" id="water-glasses-home"></div>
-    </div>
-    <div class="pas-block">
-      <div class="ep-label">🚶‍♀️ Mes pas</div>
-      <div class="pas-input-row">
-        <input class="pas-field" id="pas-home" placeholder="0" inputmode="numeric" type="number">
-        <button class="pas-btn" onclick="savePasHome()">OK ✓</button>
-      </div>
-      <div style="font-size:9px;color:var(--text-soft);font-weight:600;margin-top:5px" id="pas-sub-home">pas aujourd'hui</div>
-    </div>
-  </div>
-
-  <!-- Calendrier -->
-  <div class="section-row" style="margin-top:4px">
-    <span class="section-title">📅 Mon calendrier</span>
-    <button class="section-link" onclick="toggleStartPicker()">Démarrage</button>
-  </div>
-  <div class="calendar-wrap">
-    <div class="cal-header">
-      <button class="cal-nav" onclick="prevMonth()">‹</button>
-      <span class="cal-month" id="cal-month-label"></span>
-      <button class="cal-nav" onclick="nextMonth()">›</button>
-    </div>
-    <div class="cal-days-header">
-      <span class="cal-day-name">L</span><span class="cal-day-name">M</span>
-      <span class="cal-day-name">M</span><span class="cal-day-name">J</span>
-      <span class="cal-day-name">V</span><span class="cal-day-name">S</span>
-      <span class="cal-day-name">D</span>
-    </div>
-    <div class="cal-grid" id="cal-grid"></div>
-    <div id="start-picker" style="display:none;margin-top:10px;padding-top:10px;border-top:1.5px solid var(--border)">
-      <div style="font-size:12px;font-weight:700;color:var(--text-mid);margin-bottom:6px">Date de démarrage du programme :</div>
-      <input type="date" id="start-date-input" class="input-field" style="width:100%" onchange="setStartDate(this.value)">
-    </div>
-    <div class="event-form">
-      <input class="event-input" id="event-input" placeholder="Ajouter un événement..." onkeydown="if(event.key==='Enter')addEvent()">
-      <button class="event-btn" onclick="addEvent()">+</button>
-    </div>
-    <div class="events-list" id="events-list"></div>
-  </div>
-
-  <!-- Compagnons -->
-  <div class="section-row">
-    <span class="section-title">👥 Mes compagnons</span>
-    <button class="section-link" onclick="openCmpModal(-1)">Ajouter</button>
-  </div>
-  <div class="companions-section">
-    <div class="companions-scroll" id="companions-scroll"></div>
-  </div>
-
-  <!-- Cycle -->
-  <div class="section-row">
-    <span class="section-title">🌙 Mon cycle</span>
-    <button class="section-link" onclick="openCycleModal()">Configurer</button>
-  </div>
-  <div id="cycle-home-card"></div>
-
-</div>
-
-<div class="screen" id="screen-prog">
-  <div class="page-header">
-    <div class="page-sub">Ton parcours</div>
-    <div class="page-title">Mon programme 🥗</div>
-    <div class="page-desc">12 semaines · 1 550 kcal/jour · tout fait maison</div>
-  </div>
-  <div class="prog-bar-wrap">
-    <div class="prog-bar-fill" id="prog-bar" style="width:8%"></div>
-  </div>
-  <div class="prog-bar-labels">
-    <span class="prog-bar-label">Semaine 1 / 12</span>
-    <span class="prog-bar-label" id="prog-pct-lbl">8%</span>
-  </div>
-  <div class="weeks-list" id="weeks-list"></div>
-</div>
-
-<div class="screen" id="screen-sport">
-  <div class="page-header">
-    <div class="page-sub">Cette semaine</div>
-    <div class="page-title">Mon sport 💪</div>
-  </div>
-
-  <!-- Hero card -->
-  <div class="sport-hero">
-    <div class="sh-top">
-      <div>
-        <div style="font-size:10px;font-weight:800;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Semaine 1</div>
-        <div style="font-size:20px;font-weight:900;color:#fff">En forme Pauline ! 🔥</div>
-      </div>
-    </div>
-    <div class="sh-stats">
-      <div class="sh-stat"><div class="sh-val" id="sport-nb-seances">2</div><div class="sh-lbl">Séances</div></div>
-      <div class="sh-stat"><div class="sh-val" id="sport-kcal">480</div><div class="sh-lbl">kcal brûlées</div></div>
-      <div class="sh-stat"><div class="sh-val" id="sport-streak">5 🔥</div><div class="sh-lbl">Jours actifs</div></div>
-    </div>
-    <div class="sh-dots" style="margin-top:12px">
-      <div class="sh-dot done" title="Lundi">✓</div>
-      <div class="sh-dot" title="Mardi">M</div>
-      <div class="sh-dot done" title="Mercredi">✓</div>
-      <div class="sh-dot" title="Jeudi">J</div>
-      <div class="sh-dot" title="Vendredi" style="border-color:rgba(255,255,255,.5)">V</div>
-      <div class="sh-dot" title="Samedi">S</div>
-      <div class="sh-dot" title="Dimanche">D</div>
-    </div>
-  </div>
-
-  <!-- Boutons principaux -->
-  <div class="sport-btns">
-    <button class="sport-btn primary" onclick="openLogSeance()">
-      <span class="sport-btn-icon">▶️</span>
-      Démarrer une séance
-    </button>
-    <button class="sport-btn secondary" onclick="openBibliotheque()">
-      <span class="sport-btn-icon">📚</span>
-      Bibliothèque
-    </button>
-  </div>
-
-  <!-- Donut double anneau -->
-  <div class="donut-wrap">
-    <div class="donut-svg-wrap">
-      <svg width="80" height="80" viewBox="0 0 80 80">
-        <!-- Anneau extérieur rose = séances -->
-        <circle cx="40" cy="40" r="34" fill="none" stroke="var(--rose-light)" stroke-width="8"/>
-        <circle cx="40" cy="40" r="34" fill="none" stroke="var(--rose)" stroke-width="8"
-          stroke-dasharray="213.6" stroke-dashoffset="149.5"
-          stroke-linecap="round" transform="rotate(-90 40 40)"/>
-        <!-- Anneau intérieur sauge = kcal -->
-        <circle cx="40" cy="40" r="24" fill="none" stroke="var(--sauge-light)" stroke-width="7"/>
-        <circle cx="40" cy="40" r="24" fill="none" stroke="var(--sauge)" stroke-width="7"
-          stroke-dasharray="150.8" stroke-dashoffset="90.5"
-          stroke-linecap="round" transform="rotate(-90 40 40)"/>
-      </svg>
-      <div class="donut-center"><div class="donut-center-val">2/3</div><div class="donut-center-lbl">séances</div></div>
-    </div>
-    <div class="donut-legend">
-      <div class="donut-legend-item">
-        <div class="donut-dot" style="background:var(--rose)"></div>
-        <div>
-          <div class="donut-legend-val">2 <span style="font-size:11px;font-weight:600;color:var(--text-soft)">/ 3 objectif</span></div>
-          <div class="donut-legend-lbl">Séances cette semaine</div>
-        </div>
-      </div>
-      <div class="donut-legend-item">
-        <div class="donut-dot" style="background:var(--sauge)"></div>
-        <div>
-          <div class="donut-legend-val">480 <span style="font-size:11px;font-weight:600;color:var(--text-soft)">/ 800 kcal</span></div>
-          <div class="donut-legend-lbl">Calories brûlées</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Historique des séances -->
-  <div class="section-row"><span class="section-title">Mes séances</span></div>
-  <div id="historique-seances"></div>
-
-  <!-- Mes pas -->
-  <div class="section-row" style="margin-top:6px"><span class="section-title">🚶‍♀️ Mes pas</span><span style="font-size:11px;font-weight:600;color:var(--text-soft)" id="pas-total-semaine">0 pas cette semaine</span></div>
-  <div style="margin:0 18px 20px;background:var(--white);border-radius:var(--radius);border:1.5px solid var(--border);padding:14px 16px;box-shadow:var(--shadow-sm)">
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:12px" id="pas-grid-sport"></div>
-    <div style="display:flex;gap:10px;align-items:center">
-      <div style="flex:1">
-        <div style="font-size:9px;font-weight:800;color:var(--text-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Ajouter les pas d'aujourd'hui</div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input id="pas-sport-input" type="number" inputmode="numeric" placeholder="ex: 8 500"
-            style="flex:1;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:8px 10px;font-size:14px;font-weight:800;color:var(--text);font-family:var(--font);outline:none">
-          <button onclick="savePasSport()" style="background:var(--terra);color:#fff;border:none;border-radius:10px;padding:9px 14px;font-size:12px;font-weight:800;font-family:var(--font);cursor:pointer;white-space:nowrap">Enregistrer ✓</button>
-        </div>
-      </div>
-    </div>
-    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:11px;font-weight:600;color:var(--text-soft)">Objectif journalier</span>
-      <div style="display:flex;align-items:center;gap:8px">
-        <button onclick="changePasObjectif(-1000)" style="width:26px;height:26px;border-radius:8px;border:none;background:var(--terra-light);color:var(--terra);font-size:14px;font-weight:800;cursor:pointer;font-family:var(--font)">−</button>
-        <span style="font-size:13px;font-weight:900;color:var(--text)" id="pas-objectif-lbl">8 000 pas</span>
-        <button onclick="changePasObjectif(1000)" style="width:26px;height:26px;border-radius:8px;border:none;background:var(--terra-light);color:var(--terra);font-size:14px;font-weight:800;cursor:pointer;font-family:var(--font)">+</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="screen" id="screen-suivi">
-  <div class="page-header">
-    <div class="page-sub">Mon évolution</div>
-    <div class="page-title">Suivi corporel 📏</div>
-    <div class="page-desc">Pesez-vous le matin à jeun, dans les mêmes conditions.</div>
-  </div>
-
-  <!-- Poids hero -->
-  <div class="poids-card">
-    <div class="pc-row">
-      <div class="pc-left">
-        <div class="pc-label">Poids actuel</div>
-        <div class="pc-val" id="pc-val">— kg</div>
-        <div class="pc-sub">Pesée ce matin à jeun</div>
-        <div class="pc-delta" id="pc-delta" style="display:none">
-          <span style="font-size:13px" id="pc-delta-arrow">↓</span>
-          <span class="pc-delta-val" id="pc-delta-val"></span>
-        </div>
-      </div>
-      <div class="pc-right">
-        <div class="pc-obj-label">Objectif</div>
-        <div class="pc-obj-val">60 kg</div>
-        <div class="pc-obj-sub" id="pc-reste">−15 kg restants</div>
-      </div>
-    </div>
-    <div class="sparkline-wrap">
-      <div class="sparkline-header">
-        <div class="sparkline-title">Évolution du poids</div>
-        <div class="sparkline-range" id="sparkline-nb">— mesures</div>
-      </div>
-      <svg id="sparkline-svg" width="100%" height="48" viewBox="0 0 280 48" preserveAspectRatio="none">
-        <text x="140" y="28" text-anchor="middle" font-size="11" fill="rgba(255,255,255,.4)" font-family="Nunito">Ajoutez votre première mesure</text>
-      </svg>
-    </div>
-  </div>
-
-  <!-- Saisie -->
-  <div class="saisie-card">
-    <div class="saisie-title">➕ Nouvelle mesure</div>
-    <div class="saisie-grid">
-      <div class="saisie-field">
-        <div class="saisie-label">Poids</div>
-        <div class="saisie-input-row"><input class="saisie-input" id="inp-poids" placeholder="75.0" type="number" step="0.1" inputmode="decimal"><span class="saisie-unit">kg</span></div>
-      </div>
-      <div class="saisie-field">
-        <div class="saisie-label">Taille</div>
-        <div class="saisie-input-row"><input class="saisie-input" id="inp-taille" placeholder="80" type="number" step="0.5" inputmode="decimal"><span class="saisie-unit">cm</span></div>
-      </div>
-      <div class="saisie-field">
-        <div class="saisie-label">Hanches</div>
-        <div class="saisie-input-row"><input class="saisie-input" id="inp-hanches" placeholder="100" type="number" step="0.5" inputmode="decimal"><span class="saisie-unit">cm</span></div>
-      </div>
-      <div class="saisie-field">
-        <div class="saisie-label">Cuisses</div>
-        <div class="saisie-input-row"><input class="saisie-input" id="inp-cuisses" placeholder="60" type="number" step="0.5" inputmode="decimal"><span class="saisie-unit">cm</span></div>
-      </div>
-      <div class="saisie-field">
-        <div class="saisie-label">Bras</div>
-        <div class="saisie-input-row"><input class="saisie-input" id="inp-bras" placeholder="28" type="number" step="0.5" inputmode="decimal"><span class="saisie-unit">cm</span></div>
-      </div>
-      <div class="saisie-field">
-        <div class="saisie-label">Poitrine</div>
-        <div class="saisie-input-row"><input class="saisie-input" id="inp-poitrine" placeholder="90" type="number" step="0.5" inputmode="decimal"><span class="saisie-unit">cm</span></div>
-      </div>
-    </div>
-    <button class="btn-save" onclick="saveMeasure()">Enregistrer ✓</button>
-  </div>
-
-  <!-- Mensurations cards -->
-  <div class="section-row"><span class="section-title">Mes mensurations</span><span style="font-size:11px;font-weight:600;color:var(--text-soft)">Début → Actuel</span></div>
-  <div class="mens-grid" id="mens-grid">
-    <div style="grid-column:span 2;text-align:center;padding:20px;color:var(--text-soft);font-size:13px">Ajoutez des mesures pour voir l'évolution</div>
-  </div>
-
-  <!-- Historique -->
-  <div class="section-row"><span class="section-title">Historique</span></div>
-  <div class="history-list" id="history-list">
-    <div style="text-align:center;padding:20px;color:var(--text-soft);font-size:13px">Aucune mesure enregistrée</div>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════
-     WEEK OVERLAY
-     ═══════════════════════════════════════════ -->
-<div class="week-screen" id="week-screen">
-  <div class="back-bar">
-    <button class="back-btn" onclick="closeWeek()">←</button>
-    <span class="back-title" id="week-screen-title">Semaine 1</span>
-  </div>
-
-  <!-- Bilan semaine card -->
-  <div class="bsc" id="bsc">
-    <div class="bsc-top">
-      <div class="bsc-label">Bilan de la semaine</div>
-      <div class="bsc-dates" id="bsc-dates">—</div>
-    </div>
-    <div class="bsc-stats">
-      <div class="bsc-stat">
-        <div class="bsc-val" id="bsc-repas">0/34</div>
-        <div class="bsc-lbl">Repas cochés</div>
-      </div>
-      <div class="bsc-stat">
-        <div class="bsc-val" id="bsc-kcal">1 550</div>
-        <div class="bsc-lbl">kcal / jour</div>
-      </div>
-      <div class="bsc-stat">
-        <div class="bsc-val" id="bsc-streak">J5 🔥</div>
-        <div class="bsc-lbl">Streak</div>
-      </div>
-    </div>
-    <div class="bsc-pas">
-      <div style="font-size:18px">🚶‍♀️</div>
-      <div>
-        <div class="bsc-pas-val" id="bsc-pas-total">0 pas</div>
-        <div class="bsc-pas-lbl">cette semaine</div>
-      </div>
-      <div class="bsc-pas-days" id="bsc-pas-days">0 jour renseigné</div>
-    </div>
-    <div class="bsc-msg">
-      <div style="font-size:20px;flex-shrink:0">🌸</div>
-      <div>
-        <div class="bsc-msg-title">Continue comme ça Pauline !</div>
-        <div class="bsc-msg-sub">Tu as cuisiné maison toute la semaine — c'est ça qui compte 💪</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Pills jours -->
-  <div class="days-scroll" id="days-scroll"></div>
-
-  <!-- Total kcal du jour -->
-  <div class="day-total-bar" id="day-total-bar">
-    <span class="day-total-txt">Total du jour</span>
-    <span class="day-total-val" id="day-total-val">— kcal</span>
-  </div>
-
-  <!-- Eau + Pas du jour -->
-  <div class="eau-pas-card">
-    <div class="eau-block">
-      <div class="ep-label">💧 Eau</div>
-      <div class="ep-val-row">
-        <span class="ep-big" id="eau-val-week">6</span>
-        <span class="ep-unit">/ 8 verres</span>
-      </div>
-      <div class="glasses-row" id="water-glasses-week"></div>
-    </div>
-    <div class="pas-block">
-      <div class="ep-label">🚶‍♀️ Pas</div>
-      <div class="pas-input-row">
-        <input class="pas-field" id="pas-week" placeholder="0" inputmode="numeric" type="number">
-        <button class="pas-btn" onclick="savePasWeek()">OK</button>
-      </div>
-      <div style="font-size:9px;color:var(--text-soft);font-weight:600;margin-top:3px">pas aujourd'hui</div>
-    </div>
-  </div>
-
-  <!-- Contenu dynamique (repas / courses / banque / bilan) -->
-  <div id="courses-section" style="display:none"></div>
-  <div id="bilan-section" style="display:none"></div>
-  <div class="meals-area" id="meals-bubbles"></div>
-
-  <!-- Teaser semaine suivante -->
-  <div class="teaser-card" id="teaser-next" style="display:none" onclick="showToast('Semaine 2 disponible bientôt !')">
-    <div class="teaser-icon">📅</div>
-    <div style="flex:1">
-      <div style="font-size:12px;font-weight:900;color:var(--violet);margin-bottom:2px">Semaine 2 — Prendre le rythme</div>
-      <div style="font-size:11px;color:var(--text-soft);font-weight:600;line-height:1.4">Disponible à partir du lundi prochain</div>
-    </div>
-    <div class="teaser-badge">J−7</div>
-  </div>
-</div>
-
-<!-- ════════════════════════════════════════
-     SPORT OVERLAY — BIBLIOTHÈQUE
-     ════════════════════════════════════════ -->
-<div class="sport-screen" id="biblio-screen">
-  <div class="back-bar">
-    <button class="back-btn" onclick="closeBibliotheque()">←</button>
-    <span class="back-title">Bibliothèque</span>
-  </div>
-  <!-- Recherche -->
-  <div class="biblio-search">
-    <span style="font-size:16px">🔍</span>
-    <input id="biblio-search" placeholder="Rechercher un exercice..." oninput="filterExos()">
-  </div>
-  <!-- Stats -->
-  <div class="biblio-stats">
-    <div class="biblio-stat"><div class="biblio-stat-val">63</div><div class="biblio-stat-lbl">Exercices</div></div>
-    <div class="biblio-stat"><div class="biblio-stat-val">7</div><div class="biblio-stat-lbl">Groupes</div></div>
-    <div class="biblio-stat"><div class="biblio-stat-val" id="fav-count">0</div><div class="biblio-stat-lbl">Favoris</div></div>
-  </div>
-  <!-- Grille groupes musculaires -->
-  <div id="biblio-content"></div>
-</div>
-
-<!-- ════════════════════════════════════════
-     SPORT OVERLAY — GROUPE MUSCULAIRE
-     ════════════════════════════════════════ -->
-<div class="sport-screen" id="groupe-screen">
-  <div class="back-bar">
-    <button class="back-btn" onclick="closeGroupe()">←</button>
-    <span class="back-title" id="groupe-title">Jambes</span>
-  </div>
-  <div id="groupe-content"></div>
-</div>
-
-<!-- ════════════════════════════════════════
-     SPORT OVERLAY — LOG SÉANCE
-     ════════════════════════════════════════ -->
-<div class="sport-screen" id="log-screen">
-  <div class="back-bar">
-    <button class="back-btn" onclick="closeLogSeance()">←</button>
-    <span class="back-title">Ma séance</span>
-    <div class="log-timer" id="log-timer">00:00</div>
-  </div>
-
-  <!-- Hero stats séance -->
-  <div class="log-hero">
-    <div class="log-hero-stats">
-      <div class="lhs"><div class="lhs-val" id="log-duree">0 min</div><div class="lhs-lbl">Durée</div></div>
-      <div class="lhs"><div class="lhs-val" id="log-kcal">0</div><div class="lhs-lbl">kcal</div></div>
-      <div class="lhs"><div class="lhs-val" id="log-exos">0</div><div class="lhs-lbl">Exercices</div></div>
-    </div>
-  </div>
-
-  <!-- Boutons ajouter -->
-  <div class="log-add-btns">
-    <button class="log-add-btn lab-muscu" onclick="openExoPicker()">💪 Ajouter muscu</button>
-    <button class="log-add-btn lab-cardio" onclick="openCardioPicker()">❤️ Ajouter cardio</button>
-  </div>
-
-  <!-- Exercices logués -->
-  <div id="log-exercises"></div>
-
-  <!-- Auto-évaluation -->
-  <div class="eval-section">
-    <div class="eval-title">Comment tu t'es sentie ?</div>
-    <div class="eval-smileys">
-      <button class="eval-btn" onclick="selectEval('terrible')" id="ev-terrible">
-        <div class="eval-emoji">😫</div><div class="eval-txt">Difficile</div>
-      </button>
-      <button class="eval-btn" onclick="selectEval('moyen')" id="ev-moyen">
-        <div class="eval-emoji">😕</div><div class="eval-txt">Moyen</div>
-      </button>
-      <button class="eval-btn" onclick="selectEval('bien')" id="ev-bien">
-        <div class="eval-emoji">😊</div><div class="eval-txt">Bien</div>
-      </button>
-      <button class="eval-btn" onclick="selectEval('super')" id="ev-super">
-        <div class="eval-emoji">😄</div><div class="eval-txt">Super</div>
-      </button>
-      <button class="eval-btn" onclick="selectEval('top')" id="ev-top">
-        <div class="eval-emoji">🤩</div><div class="eval-txt">Top !</div>
-      </button>
-    </div>
-    <textarea class="eval-note" id="eval-note" rows="2" placeholder="Note libre : douleurs, progrès, ressenti..."></textarea>
-  </div>
-
-  <!-- Boutons finaux -->
-  <button class="save-seance-btn" onclick="saveSeance()">✓ Enregistrer · <span id="save-btn-info">0 min · 0 kcal</span></button>
-  <button class="share-seance-btn" onclick="shareSeance()">Partager cette séance</button>
-</div>
-
-<nav class="nav">
-  <button class="nav-btn active" id="nav-home" onclick="goScreen('screen-home')">
-    <span class="nav-icon">&#127968;</span><span class="nav-label">Accueil</span><div class="nav-dot"></div>
-  </button>
-  <button class="nav-btn" id="nav-prog" onclick="goScreen('screen-prog')">
-    <span class="nav-icon">&#129367;</span><span class="nav-label">Programme</span><div class="nav-dot"></div>
-  </button>
-  <button class="nav-btn" id="nav-sport" onclick="goScreen('screen-sport')">
-    <span class="nav-icon">&#128170;</span><span class="nav-label">Sport</span><div class="nav-dot"></div>
-  </button>
-  <button class="nav-btn" id="nav-suivi" onclick="goScreen('screen-suivi')">
-    <span class="nav-icon">&#128207;</span><span class="nav-label">Suivi</span><div class="nav-dot"></div>
-  </button>
-</nav>
-
-<script>
-// ── CONSTANTES ────────────────────────────────────────────────────────────────
-const GOAL_LOSS = 15, START_WEIGHT = 75;
-// [DEDUP] MONTHS_FR already declared
-
-const DAYS_FR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
-const MONTHS_LONG = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
-let calYear = new Date().getFullYear(), calMonth = new Date().getMonth();
-let showStartPicker = false, selectedCalDate = null;
-let cmpEditIndex = -1, cmpGender = 'F', cmpEmoji = '👩';
-let pendingEventName = '', pendingEventDate = '', selectedImpact = null;
-
-// ── STORAGE ───────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════
+//  STORAGE
+// ════════════════════════════════════════════════════
 function gS(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}}
 function sS(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
 
-let measures    = gS('measures', []);
-let waterData   = gS('waterData', {});
-let companions  = gS('companions', []);
-let events      = gS('calEvents', []);
-let startDate   = gS('startDate', null);
-let pasData     = gS('pasData', {});
-let moodToday   = gS('moodToday', {});
-let cycleData   = gS('cycleData', {regles:null, ovulation:null});
-let seances          = gS('seances', []);
-let favoris          = gS('favoris', []);
-let weeklyBilans     = gS('weeklyBilans', {});
-let mealReplacements = gS('mealReplacements', {});
-let dessertToggles   = gS('dessertToggles', {});
-let reglesAdaptations    = gS('reglesAdaptations', {});
-let reglesPromptAnswered = gS('reglesPromptAnswered', {});
-let bilanStep1Data    = null;
-let bilanSelectedMood = null;
-let bilanCurrentWeek  = null;
-let cycleAlertWeekNum = null;
-let pendingAdaptWeek  = null;
-let currentWeek       = null;
-let currentDay        = 'Lundi';
-let showingCourses    = false;
-let showingBilan      = false;
-let showingBank       = false;
-let currentMealIdx    = -1;
-let pendingReplaceIdx = -1;
-let bankCurrentMeal   = null;
-let currentPortion    = 1;
-let selectedCmp       = [];
-let currentMeal       = null;
-let startDate         = gS('startDate', null);
-
-// ── NAV ───────────────────────────────────────────────────────────────────────
-function goScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  const map = {'screen-home':'nav-home','screen-prog':'nav-prog','screen-sport':'nav-sport','screen-suivi':'nav-suivi'};
-  if(map[id]) document.getElementById(map[id]).classList.add('active');
-  if(id === 'screen-home') renderHome();
-}
-
-// ── DATE DU JOUR ──────────────────────────────────────────────────────────────
-function renderDate() {
-  const now = new Date();
-  const el = document.getElementById('home-date');
-  if(el) el.textContent = DAYS_FR[now.getDay()] + ' ' + now.getDate() + ' ' + MONTHS_LONG[now.getMonth()];
-}
-
-// ── MOOD HOME ─────────────────────────────────────────────────────────────────
-const MOOD_KEYS = ['bad','meh','ok','good','great'];
-function todayKey() {
-  const d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-}
-function selectMoodHome(key) {
-  moodToday[todayKey()] = key;
-  sS('moodToday', moodToday);
-  MOOD_KEYS.forEach(k => {
-    const btn = document.getElementById('mb-'+k);
-    const wrap = document.getElementById('mw-'+k);
-    if(btn) btn.classList.toggle('active', k===key);
-    if(wrap) wrap.parentElement.classList.toggle('active', k===key);
-  });
-  showToast('Humeur enregistrée ✓');
-}
-function restoreMoodHome() {
-  const saved = moodToday[todayKey()];
-  if(saved) selectMoodHome(saved);
-}
-
-// ── HERO PROGRESSION ─────────────────────────────────────────────────────────
-function renderHero() {
-  const last = measures.length ? measures[measures.length-1] : null;
-  const lost = last ? Math.max(0, START_WEIGHT - parseFloat(last.poids)) : 3.5;
-  const pct = Math.min(100, Math.round((lost / GOAL_LOSS) * 100));
-  const circ = 175.9;
-  const rf = document.getElementById('ring-fill');
-  if(rf) rf.style.strokeDashoffset = circ - (circ * pct / 100);
-  const rp = document.getElementById('ring-pct');
-  if(rp) rp.textContent = pct + '%';
-  const hl = document.getElementById('hero-lost');
-  if(hl) hl.textContent = lost.toFixed(1) + ' kg perdus';
-  const hb = document.getElementById('hero-bar');
-  if(hb) hb.style.width = pct + '%';
-}
-
-// ── EAU ───────────────────────────────────────────────────────────────────────
-const WATER_ML = 250;
-function getTodayWater() {
-  const k = todayKey();
-  if(!waterData[k]) waterData[k] = {glasses:0, goal:8};
-  return waterData[k];
-}
-function renderWater() {
-  const today = getTodayWater();
-  const container = document.getElementById('water-glasses-home');
-  if(!container) return;
-  let html = '';
-  for(let i=0; i<today.goal; i++) {
-    html += `<div class="glass${i<today.glasses?' on':''}" onclick="toggleGlass(${i})"></div>`;
-  }
-  container.innerHTML = html;
-  const ec = document.getElementById('eau-count');
-  if(ec) ec.textContent = today.glasses;
-}
-function toggleGlass(i) {
-  const today = getTodayWater();
-  today.glasses = (today.glasses === i+1) ? i : i+1;
-  sS('waterData', waterData);
-  renderWater();
-}
-
-// ── PAS ───────────────────────────────────────────────────────────────────────
-function savePasHome() {
-  const val = parseInt(document.getElementById('pas-home').value) || 0;
-  pasData['today-' + todayKey()] = val;
-  sS('pasData', pasData);
-  const sub = document.getElementById('pas-sub-home');
-  if(sub) sub.textContent = val.toLocaleString('fr-FR') + ' pas aujourd\'hui';
-  showToast('Pas enregistrés ✓');
-}
-function restorePas() {
-  const val = pasData['today-' + todayKey()] || 0;
-  const field = document.getElementById('pas-home');
-  if(field && val) { field.value = val; }
-  const sub = document.getElementById('pas-sub-home');
-  if(sub && val) sub.textContent = val.toLocaleString('fr-FR') + ' pas aujourd\'hui';
-}
-
-// ── COMPAGNONS ────────────────────────────────────────────────────────────────
-function calcTarget(poids, taille, genre) {
-  const age = 30;
-  const bmr = genre==='F' ? 10*poids+6.25*taille-5*age-161 : 10*poids+6.25*taille-5*age+5;
-  return Math.round(bmr*1.4-400);
-}
-function renderCompanions() {
-  const scroll = document.getElementById('companions-scroll');
-  if(!scroll) return;
-  let html = '';
-  companions.forEach((c,i) => {
-    const kcal = c.poids&&c.taille ? calcTarget(parseFloat(c.poids), parseFloat(c.taille), c.genre) : 0;
-    html += `<div class="companion-bubble" onclick="openCmpModal(${i})">
-      <div class="companion-avatar" style="background:linear-gradient(135deg,var(--rose-light),var(--violet-light))">${c.emoji||'👤'}</div>
-      <div class="companion-name">${c.name}</div>
-      ${kcal ? `<div class="companion-kcal">${kcal} kcal</div>` : ''}
-    </div>`;
-  });
-  html += `<button class="add-companion-btn" onclick="openCmpModal(-1)">
-    <div class="add-companion-icon">+</div>
-    <span class="add-companion-label">Ajouter</span>
-  </button>`;
-  scroll.innerHTML = html;
-}
-
-const EMOJI_LIST = ['👨','👩','🧑','🧔','👱','🧑‍🦰','🦁','🐻','🐼','🦊','🌸','⭐','💪','🎉','🍀'];
-function openCmpModal(idx) {
-  cmpEditIndex = idx;
-  const isEdit = idx >= 0;
-  document.getElementById('cmp-modal-title').textContent = isEdit ? 'Modifier le profil' : 'Ajouter un compagnon';
-  const picker = document.getElementById('emoji-picker');
-  picker.innerHTML = EMOJI_LIST.map((e,i) =>
-    `<div class="emoji-opt${i===0?' selected':''}" onclick="selectEmoji('${e}',this)">${e}</div>`
-  ).join('');
-  cmpEmoji = EMOJI_LIST[0]; cmpGender = 'F';
-  if(isEdit) {
-    const c = companions[idx];
-    document.getElementById('cmp-name').value = c.name||'';
-    document.getElementById('cmp-poids').value = c.poids||'';
-    document.getElementById('cmp-taille').value = c.taille||'';
-    document.getElementById('cmp-objectif').value = c.objectif||'';
-    cmpGender = c.genre||'F'; cmpEmoji = c.emoji||EMOJI_LIST[0];
-    picker.querySelectorAll('.emoji-opt').forEach(el => {
-      el.classList.toggle('selected', el.textContent === cmpEmoji);
-    });
-  } else {
-    ['cmp-name','cmp-poids','cmp-taille','cmp-objectif'].forEach(id => document.getElementById(id).value='');
-  }
-  document.getElementById('gb-f').className = 'gender-btn' + (cmpGender==='F'?' selected':'');
-  document.getElementById('gb-m').className = 'gender-btn' + (cmpGender==='H'?' selected':'');
-  document.getElementById('cmp-delete-btn').style.display = isEdit ? 'block' : 'none';
-  document.getElementById('cmp-modal').classList.add('open');
-}
-function selectEmoji(e, el) {
-  cmpEmoji = e;
-  document.querySelectorAll('.emoji-opt').forEach(x => x.classList.remove('selected'));
-  el.classList.add('selected');
-}
-function selectGender(g) {
-  cmpGender = g;
-  document.getElementById('gb-f').className = 'gender-btn' + (g==='F'?' selected':'');
-  document.getElementById('gb-m').className = 'gender-btn' + (g==='H'?' selected':'');
-}
-function saveCompanion() {
-  const name = document.getElementById('cmp-name').value.trim();
-  if(!name) { showToast('Entrez un prénom'); return; }
-  const c = { name, emoji:cmpEmoji, genre:cmpGender,
-    poids:document.getElementById('cmp-poids').value,
-    taille:document.getElementById('cmp-taille').value,
-    objectif:document.getElementById('cmp-objectif').value };
-  if(cmpEditIndex>=0) companions[cmpEditIndex]=c; else companions.push(c);
-  sS('companions', companions);
-  closeCmpModal(); renderCompanions();
-  showToast(cmpEditIndex>=0 ? 'Profil mis à jour ✓' : 'Compagnon ajouté ✓');
-}
-function deleteCompanion() {
-  if(cmpEditIndex<0) return;
-  const name = companions[cmpEditIndex]?.name || 'ce compagnon';
-  companions.splice(cmpEditIndex,1);
-  sS('companions',companions);
-  closeCmpModal(); renderCompanions();
-  showToast(name + ' supprimé ✓');
-}
-function closeCmpModal() { document.getElementById('cmp-modal').classList.remove('open'); }
-function closeCmpIfBackdrop(e) { if(e.target===document.getElementById('cmp-modal')) closeCmpModal(); }
-
-// ── CYCLE ─────────────────────────────────────────────────────────────────────
-function openCycleModal() {
-  if(cycleData.regles) document.getElementById('cycle-regles').value = cycleData.regles;
-  if(cycleData.reglesEnd) document.getElementById('cycle-regles-end').value = cycleData.reglesEnd;
-  if(cycleData.ovulation) document.getElementById('cycle-ovulation').value = cycleData.ovulation;
-  if(cycleData.ovulationEnd) document.getElementById('cycle-ovulation-end').value = cycleData.ovulationEnd;
-  document.getElementById('cycle-modal').classList.add('open');
-}
-function closeCycleModal() {
-  document.getElementById('cycle-modal').classList.remove('open');
-  renderCycleCard();
-}
-function closeCycleIfBackdrop(e) { if(e.target===document.getElementById('cycle-modal')) closeCycleModal(); }
-function saveCycleDates() {
-  cycleData.regles = document.getElementById('cycle-regles').value || null;
-  cycleData.reglesEnd = document.getElementById('cycle-regles-end').value || null;
-  cycleData.ovulation = document.getElementById('cycle-ovulation').value || null;
-  cycleData.ovulationEnd = document.getElementById('cycle-ovulation-end').value || null;
-  sS('cycleData', cycleData);
-}
-function getCyclePhase() {
-  const today = new Date(); today.setHours(0,0,0,0);
-  if(cycleData.regles) {
-    const r = new Date(cycleData.regles); r.setHours(0,0,0,0);
-    const rEnd = cycleData.reglesEnd ? new Date(cycleData.reglesEnd) : new Date(r.getTime()+6*86400000);
-    rEnd.setHours(23,59,59,0);
-    const rStart = new Date(r.getTime()-2*86400000);
-    if(today>=rStart && today<=rEnd) return {type:'regles', daysLeft:Math.max(0,Math.round((rEnd-today)/86400000))};
-  }
-  if(cycleData.ovulation) {
-    const o = new Date(cycleData.ovulation); o.setHours(0,0,0,0);
-    const oEnd = cycleData.ovulationEnd ? new Date(cycleData.ovulationEnd) : new Date(o.getTime()+4*86400000);
-    oEnd.setHours(23,59,59,0);
-    const oStart = new Date(o.getTime()-1*86400000);
-    if(today>=oStart && today<=oEnd) return {type:'ovulation', daysLeft:Math.max(0,Math.round((oEnd-today)/86400000))};
-  }
-  return null;
-}
-function renderCycleCard() {
-  const card = document.getElementById('cycle-home-card');
-  if(!card) return;
-  if(!cycleData.regles && !cycleData.ovulation) {
-    card.innerHTML = `<div class="cycle-card-home" onclick="openCycleModal()">
-      <div style="font-size:24px">🌙</div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:800;color:var(--text)">Configurer mon cycle</div>
-      <div style="font-size:11px;color:var(--text-soft);margin-top:2px">Adaptez le programme à votre cycle</div></div>
-      <div style="font-size:16px;color:var(--violet);font-weight:800">›</div>
-    </div>`;
-    return;
-  }
-  const phase = getCyclePhase();
-  if(phase) {
-    const isR = phase.type==='regles';
-    card.innerHTML = `<div class="cycle-card-home" style="background:${isR?'var(--rose-light)':'var(--terra-light)'};border-color:${isR?'var(--rose-border)':'var(--terra-border)'}" onclick="openCycleModal()">
-      <div style="font-size:22px">${isR?'🩷':'✨'}</div>
-      <div style="flex:1">
-        <div style="font-size:12px;font-weight:800;color:${isR?'var(--rose)':'var(--terra)'}">${isR?`Semaine règles · encore ${phase.daysLeft}j`:`Semaine ovulation · encore ${phase.daysLeft}j`}</div>
-        <div style="font-size:11px;color:var(--text-soft);margin-top:2px">${isR?'Besoins en fer et magnésium augmentés':'Énergie au top — profitez-en !'}</div>
-      </div>
-      <div style="font-size:16px;color:${isR?'var(--rose)':'var(--terra)'};font-weight:800">›</div>
-    </div>`;
-  } else {
-    const nextDate = cycleData.regles ? new Date(cycleData.regles).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) : null;
-    card.innerHTML = `<div class="cycle-card-home" onclick="openCycleModal()">
-      <div style="font-size:22px">🌙</div>
-      <div style="flex:1">
-        <div style="font-size:12px;font-weight:700;color:var(--violet)">Cycle configuré</div>
-        <div style="font-size:11px;color:var(--text-soft);margin-top:2px">${nextDate?'Prochaines règles le '+nextDate:'Tout va bien cette semaine'}</div>
-      </div>
-      <div style="font-size:16px;color:var(--violet);font-weight:800">›</div>
-    </div>`;
-  }
-}
-
-// ── CALENDRIER ────────────────────────────────────────────────────────────────
-function prevMonth() { calMonth--; if(calMonth<0){calMonth=11;calYear--;} renderCalendar(); }
-function nextMonth() { calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderCalendar(); }
-function renderCalendar() {
-  document.getElementById('cal-month-label').textContent = MONTHS_FR[calMonth] + ' ' + calYear;
-  const grid = document.getElementById('cal-grid');
-  const today = new Date();
-  const firstDay = new Date(calYear, calMonth, 1);
-  const startOffset = (firstDay.getDay()+6)%7;
-  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
-  const startD = startDate ? new Date(startDate) : null;
-  let html = '';
-  for(let i=0; i<startOffset; i++) html += `<div class="cal-cell empty"></div>`;
-  for(let d=1; d<=daysInMonth; d++) {
-    const ds = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const isToday = today.getDate()===d && today.getMonth()===calMonth && today.getFullYear()===calYear;
-    const isStart = startD && startD.getDate()===d && startD.getMonth()===calMonth && startD.getFullYear()===calYear;
-    const hasEv = events.some(e=>e.date===ds);
-    const inProg = startD && new Date(ds)>=startD && new Date(ds)<=new Date(startD.getTime()+84*86400000);
-    let cls = 'cal-cell' + (isStart?' start-day':isToday?' today':inProg?' in-program':'') + (hasEv?' event':'');
-    html += `<div class="${cls}" onclick="selectCalDate('${ds}')">${d}</div>`;
-  }
-  grid.innerHTML = html;
-  renderEventsList();
-}
-function selectCalDate(ds) {
-  selectedCalDate = ds;
-  const p = ds.split('-');
-  document.getElementById('event-input').placeholder = `Événement le ${p[2]}/${p[1]}...`;
-  document.getElementById('event-input').focus();
-}
-function toggleStartPicker() {
-  showStartPicker = !showStartPicker;
-  document.getElementById('start-picker').style.display = showStartPicker ? 'block' : 'none';
-  if(startDate) document.getElementById('start-date-input').value = startDate;
-}
-function setStartDate(v) {
-  startDate = v; sS('startDate', v);
-  showToast('Date de démarrage enregistrée ✓');
-  renderCalendar();
-}
-function renderEventsList() {
-  const el = document.getElementById('events-list'); if(!events.length){el.innerHTML='';return;}
-  el.innerHTML = [...events].sort((a,b)=>a.date.localeCompare(b.date)).map((e,i) => {
-    const orig = events.findIndex(x=>x.date===e.date&&x.name===e.name);
-    const p = e.date.split('-');
-    const icon = e.impact ? ({pdj:'☀️',col:'🍎',dej:'🥗',din:'🌙',all:'🎉'}[e.impact]||'') : '';
-    return `<div class="event-item">
-      <div class="event-dot"></div>
-      <span class="event-date">${p[2]}/${p[1]}</span>
-      <span class="event-name">${icon} ${e.name}</span>
-      <button class="event-del" onclick="deleteEvent(${orig})">×</button>
-    </div>`;
-  }).join('');
-}
-function deleteEvent(i) { events.splice(i,1); sS('calEvents',events); renderCalendar(); }
-
-// ── ÉVÉNEMENT IMPACT ─────────────────────────────────────────────────────────
-const IMPACT_CHOICES = [
-  {id:'pdj', icon:'☀️', label:'Petit-déjeuner',     sub:'Repas du matin impacté'},
-  {id:'col', icon:'🍎', label:'Collations',           sub:'Collations matin et/ou après-midi'},
-  {id:'dej', icon:'🥗', label:'Déjeuner',             sub:'Repas du midi impacté'},
-  {id:'din', icon:'🌙', label:'Dîner',                sub:'Repas du soir impacté'},
-  {id:'all', icon:'🎉', label:'Toute la journée',     sub:'Événement sur la journée entière'},
-];
-const IMPACT_TIPS = {
-  pdj: 'Optez pour des œufs brouillés, un yaourt grec + fruits, ou flocons d\'avoine. Évitez les viennoiseries.',
-  col: 'Chocolat noir 85%, une poignée d\'amandes, ou un fruit. Chez des amis : fromage + quelques noix.',
-  dej: 'Au resto : grillades ou poissons avec légumes, évitez les sauces. Si repas de fête : savourez sans culpabilité.',
-  din: 'Misez sur des protéines maigres + légumes. Si après 21h, gardez une portion réduite.',
-  all: 'Accordez-vous ce plaisir pleinement ! Avant, mangez un petit-déj protéiné. Reprenez normalement le lendemain.',
-};
-function addEvent() {
-  const input = document.getElementById('event-input');
-  const name = input.value.trim(); if(!name) return;
-  const date = selectedCalDate || `${calYear}-${String(calMonth+1).padStart(2,'0')}-01`;
-  pendingEventName = name; pendingEventDate = date; selectedImpact = null;
-  const p = date.split('-');
-  document.getElementById('event-impact-date').textContent = `"${name}" — le ${p[2]}/${p[1]}/${p[0]}`;
-  document.getElementById('event-impact-choices').innerHTML = IMPACT_CHOICES.map(c =>
-    `<div class="impact-choice" id="ic-${c.id}" onclick="selectImpact('${c.id}')">
-      <span class="impact-choice-icon">${c.icon}</span>
-      <div><div class="impact-choice-label">${c.label}</div><div class="impact-choice-sub">${c.sub}</div></div>
-    </div>`
-  ).join('');
-  document.getElementById('event-impact-tip').style.display = 'none';
-  document.getElementById('event-impact-save').style.display = 'none';
-  document.getElementById('event-impact-modal').classList.add('open');
-  input.value = ''; selectedCalDate = null; input.placeholder = 'Ajouter un événement...';
-}
-function selectImpact(id) {
-  selectedImpact = id;
-  document.querySelectorAll('.impact-choice').forEach(el => el.classList.remove('selected'));
-  document.getElementById('ic-'+id).classList.add('selected');
-  const tipEl = document.getElementById('event-impact-tip');
-  tipEl.style.display = 'block';
-  tipEl.textContent = '💡 ' + IMPACT_TIPS[id];
-  document.getElementById('event-impact-save').style.display = 'block';
-}
-function saveEventWithImpact() {
-  events.push({date:pendingEventDate, name:pendingEventName, impact:selectedImpact});
-  sS('calEvents', events);
-  closeEventImpactModal();
-  showToast('Événement ajouté ✓');
-  renderCalendar();
-}
-function closeEventImpactModal() { document.getElementById('event-impact-modal').classList.remove('open'); }
-function closeEventImpactIfBackdrop(e) { if(e.target===document.getElementById('event-impact-modal')) closeEventImpactModal(); }
-
-// ── RENDER HOME ───────────────────────────────────────────────────────────────
-function renderHome() {
-  renderDate();
-  renderHero();
-  renderWater();
-  restorePas();
-  restoreMoodHome();
-  renderCompanions();
-  renderCycleCard();
-  renderCalendar();
-}
-
-// ── TOAST ─────────────────────────────────────────────────────────────────────
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2200);
-}
-
-// ── INIT ──────────────────────────────────────────────────────────────────────
-renderHome();
-// Animation de la progression au chargement
-setTimeout(() => {
-  const last = measures.length ? measures[measures.length-1] : null;
-  const lost = last ? Math.max(0, START_WEIGHT - parseFloat(last.poids)) : 3.5;
-  const pct = Math.min(100, Math.round((lost/GOAL_LOSS)*100));
-  const circ = 175.9;
-  const rf = document.getElementById('ring-fill');
-  if(rf) rf.style.strokeDashoffset = circ - (circ*pct/100);
-  const hb = document.getElementById('hero-bar');
-  if(hb) hb.style.width = pct + '%';
-}, 100);
-
-
-// ══════════════════════════════════════════════════════
-//  UTILITAIRES DATES SEMAINES
-// ══════════════════════════════════════════════════════
-const JS_WEEKDAY_TO_NAME = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
-
-function getWeekDates(weekNum) {
-  if(!startDate) return null;
-  const start = new Date(startDate);
-  const wStart = new Date(start.getTime() + (weekNum-1)*7*86400000);
-  const wEnd   = new Date(wStart.getTime() + 6*86400000);
-  const fmt = d => d.toLocaleDateString("fr-FR", {day:"numeric", month:"short"});
-  return { start:fmt(wStart), end:fmt(wEnd), startD:wStart, endD:wEnd };
-}
-
-function getDisplayDaysOrder() {
-  if(!startDate) return DAYS_ORDER;
-  const startWeekdayName = JS_WEEKDAY_TO_NAME[new Date(startDate).getDay()];
-  const startIdx = DAYS_ORDER.indexOf(startWeekdayName);
-  if(startIdx <= 0) return DAYS_ORDER;
-  return [...DAYS_ORDER.slice(startIdx), ...DAYS_ORDER.slice(0, startIdx)];
-}
-
-function getDateForDay(weekNum, dayName) {
-  const dates = getWeekDates(weekNum); if(!dates) return null;
-  const dayIdx = getDisplayDaysOrder().indexOf(dayName); if(dayIdx < 0) return null;
-  const d = new Date(dates.startD.getTime() + dayIdx*86400000);
-  return d.toLocaleDateString("fr-FR", {day:"numeric", month:"short"});
-}
-
-
-
-// ══════════════════════════════════════════════════════
-//  WEEK LOADER (fetch depuis GitHub/Vercel)
-// ══════════════════════════════════════════════════════
-let loadedWeeks = {};
-
-function loadWeek(weekNum, callback) {
-  if(loadedWeeks[weekNum]) { callback(loadedWeeks[weekNum]); return; }
-  const filename = 'week-' + String(weekNum).padStart(2,'0') + '.js';
-  fetch(filename + '?v=' + Date.now())
-    .then(r => { if(!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
-    .then(jsText => {
-      const fn = new Function(jsText); fn();
-      const data = window['WEEK_DATA_' + weekNum];
-      if(data) { loadedWeeks[weekNum] = data; callback(data); }
-      else { console.error('WEEK_DATA_' + weekNum + ' not found'); callback(null); }
-    })
-    .catch(err => { console.error('Failed to load week', weekNum, err); callback(null); });
-}
-
-const WEEKS_META = {
-  1:{title:"Semaine 1",subtitle:"Lancer en douceur",available:true},
-  2:{title:"Semaine 2",subtitle:"Prendre le rythme",available:false},
-  3:{title:"Semaine 3",subtitle:"Confirmer les habitudes",available:false},
-  4:{title:"Semaine 4",subtitle:"Accélérer",available:false},
-  5:{title:"Semaine 5",available:false},
-  6:{title:"Semaine 6",available:false},
-  7:{title:"Semaine 7",available:false},
-  8:{title:"Semaine 8",available:false},
-  9:{title:"Semaine 9",available:false},
-  10:{title:"Semaine 10",available:false},
-  11:{title:"Semaine 11",available:false},
-  12:{title:"Semaine 12",subtitle:"La ligne d'arrivée 🏆",available:false},
-};
-
-// ══════════════════════════════════════════════════════
-//  RECETTES (fetch depuis GitHub/Vercel)
-// ══════════════════════════════════════════════════════
-let RECIPES_PLATS = [];
-let RECIPES_DESSERTS = [];
-let RECIPES_SALADES = {taboules:[], salades:[]};
-let RECIPES_REGLES = {petitsDejeuners:[], dejeuners:[], diners:[], collations:[], desserts:[]};
-let RECIPE_BANK = {plats:[], desserts:[]};
-
-function refreshRecipeBankAlias() {
-  RECIPE_BANK = { plats: RECIPES_PLATS, desserts: RECIPES_DESSERTS };
-}
-
-function loadRecipesPlats() {
-  fetch('recipes-plats.js?v=' + Date.now())
-    .then(r => r.ok ? r.text() : Promise.reject('HTTP ' + r.status))
-    .then(js => { const fn = new Function(js); fn(); if(window.RECIPES_PLATS_DATA){ RECIPES_PLATS = window.RECIPES_PLATS_DATA; refreshRecipeBankAlias(); }})
-    .catch(err => console.error('Failed recipes plats:', err));
-}
-function loadRecipesDesserts() {
-  fetch('recipes-desserts.js?v=' + Date.now())
-    .then(r => r.ok ? r.text() : Promise.reject('HTTP ' + r.status))
-    .then(js => { const fn = new Function(js); fn(); if(window.RECIPES_DESSERTS_DATA){ RECIPES_DESSERTS = window.RECIPES_DESSERTS_DATA; refreshRecipeBankAlias(); }})
-    .catch(err => console.error('Failed recipes desserts:', err));
-}
-function loadRecipesSalades() {
-  fetch('recipes-salades.js?v=' + Date.now())
-    .then(r => r.ok ? r.text() : Promise.reject('HTTP ' + r.status))
-    .then(js => { const fn = new Function(js); fn(); if(window.RECIPES_SALADES_DATA){ RECIPES_SALADES = window.RECIPES_SALADES_DATA; }})
-    .catch(err => console.error('Failed recipes salades:', err));
-}
-function loadRecipesRegles() {
-  fetch('recipes-regles.js?v=' + Date.now())
-    .then(r => r.ok ? r.text() : Promise.reject('HTTP ' + r.status))
-    .then(js => { const fn = new Function(js); fn(); if(window.RECIPES_REGLES_DATA){ RECIPES_REGLES = window.RECIPES_REGLES_DATA; }})
-    .catch(err => console.error('Failed recipes règles:', err));
-}
-
-function getAllReplaceableRecipes() {
-  return [
-    ...(RECIPE_BANK.plats||[]), ...(RECIPE_BANK.desserts||[]),
-    ...(RECIPES_SALADES.taboules||[]), ...(RECIPES_SALADES.salades||[]),
-    ...(RECIPES_REGLES.petitsDejeuners||[]), ...(RECIPES_REGLES.dejeuners||[]),
-    ...(RECIPES_REGLES.diners||[]), ...(RECIPES_REGLES.collations||[]), ...(RECIPES_REGLES.desserts||[])
-  ];
-}
-
-// ══════════════════════════════════════════════════════
-//  BILAN HEBDO — PROMPT AUTOMATIQUE
-// ══════════════════════════════════════════════════════
-function getCurrentWeekNumber() {
-  if(!startDate) return null;
-  const today = new Date(); today.setHours(0,0,0,0);
-  for(let w=1; w<=12; w++) {
-    const dates = getWeekDates(w); if(!dates) continue;
-    const wEnd = new Date(dates.endD); wEnd.setHours(23,59,59,0);
-    const wStart = new Date(dates.startD); wStart.setHours(0,0,0,0);
-    if(today >= wStart && today <= wEnd) return w;
-  }
-  return null;
-}
-function isLastDayOfWeek(weekNum) {
-  const dates = getWeekDates(weekNum); if(!dates) return false;
-  const today = new Date(); today.setHours(0,0,0,0);
-  const wEnd = new Date(dates.endD); wEnd.setHours(0,0,0,0);
-  return today.getTime() === wEnd.getTime();
-}
-function checkWeeklyReviewPrompt() {
-  const w = getCurrentWeekNumber(); if(!w) return;
-  if(!isLastDayOfWeek(w)) return;
-  if(weeklyBilans[w]) return;
-  bilanCurrentWeek = w;
-  setTimeout(() => openBilanStep1(w), 600);
-}
-
-
-// ══════════════════════════════════════════════════════
-//  DONNÉES FICTIVES — semaine de test complète
-// ══════════════════════════════════════════════════════
-// [DEDUP] WEEK_DATA already declared
-
-
-// [DEDUP] BANK_RECIPES already declared
-
-
-// ══════════════════════════════════════════════════════
-//  CONSTANTES & STORAGE
-// ══════════════════════════════════════════════════════
-// [DEDUP] DAYS_ORDER already declared
-
-// [DEDUP] MONTHS_FR already declared
-
-
-function gS(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}}
-function sS(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
-
-// (défini globalement)
-// (défini globalement)
-// (défini globalement)
-let mealReplace   = gS('mealReplace2', {});
-// (défini globalement)
-let pasData       = gS('pasData', {});
-// (défini globalement)
-// (défini globalement)
-
-// (défini globalement)
-// (défini globalement)
-// (défini globalement)
-// (défini globalement)
-// (défini globalement)
-// (défini globalement)
-// (défini globalement)
-// (défini globalement)
-let currentPortion = 1;
-let selectedCmp = []; // indices compagnons sélectionnés pour la recette
-let companions = gS('companions', []); // partagé avec partie 1
-
-// ══════════════════════════════════════════════════════
-//  NAV
-// ══════════════════════════════════════════════════════
-function goScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  const m = {'screen-home':'nav-home','screen-prog':'nav-prog','screen-sport':'nav-sport','screen-suivi':'nav-suivi'};
-  if(m[id]) document.getElementById(m[id]).classList.add('active');
-  if(id==='screen-prog') renderProg();
-}
-
-// ══════════════════════════════════════════════════════
-//  EAU
-// ══════════════════════════════════════════════════════
-function todayKey() {
-  const d = new Date();
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-}
-function getTodayWater() {
-  const k = todayKey();
-  if(!waterData[k]) waterData[k] = {glasses:0, goal:8};
-  return waterData[k];
-}
-function renderWater() {
-  const today = getTodayWater();
-  const c = document.getElementById('water-glasses-week');
-  if(!c) return;
-  let html = '';
-  for(let i=0;i<today.goal;i++) html += `<div class="glass${i<today.glasses?' on':''}" onclick="toggleGlass(${i})"></div>`;
-  c.innerHTML = html;
-  const ev = document.getElementById('eau-val-week');
-  if(ev) ev.textContent = today.glasses;
-}
-function toggleGlass(i) {
-  const t = getTodayWater();
-  t.glasses = t.glasses===i+1 ? i : i+1;
-  sS('waterData', waterData); renderWater();
-}
-
-// ══════════════════════════════════════════════════════
-//  PAS SEMAINE
-// ══════════════════════════════════════════════════════
-function savePasWeek() {
-  const val = parseInt(document.getElementById('pas-week').value)||0;
-  pasData['w1-'+currentDay] = val;
-  sS('pasData', pasData);
-  updatePasSemaine();
-  showToast('Pas enregistrés ✓');
-}
-function updatePasSemaine() {
-  let total=0, jours=0;
-  DAYS_ORDER.forEach(d => { const v=pasData['w1-'+d]; if(v){total+=v;jours++;} });
-  const pv = document.getElementById('bsc-pas-total');
-  const pd = document.getElementById('bsc-pas-days');
-  if(pv) pv.textContent = total.toLocaleString('fr-FR') + ' pas';
-  if(pd) pd.textContent = jours + ' jour' + (jours>1?'s':'') + ' renseigné' + (jours>1?'s':'');
-  // Pré-remplir le champ
-  const f = document.getElementById('pas-week');
-  if(f) { const v = pasData['w1-'+currentDay]; if(v) f.value=v; else f.value=''; }
-}
-
-// ══════════════════════════════════════════════════════
-//  PROGRAMME — LISTE 12 SEMAINES
-// ══════════════════════════════════════════════════════
-function renderProg() {
-  const list = document.getElementById('weeks-list');
-  list.innerHTML = '';
-  const WEEKS_META = {
-    1:{subtitle:'Lancer en douceur', avail:true},
-    2:{subtitle:'Prendre le rythme'},
-    3:{subtitle:'Confirmer les habitudes'},
-    4:{subtitle:'Accélérer'},
-    12:{subtitle:'La ligne d\'arrivée 🏆'},
-  };
-  for(let w=1; w<=12; w++) {
-    const meta = WEEKS_META[w]||{};
-    const avail = meta.avail||false;
-    const row = document.createElement('div');
-    row.className = 'week-row' + (avail?'':' locked');
-    const badgeCls = avail ? 'wk-active' : (w===2?'wk-soon':'wk-locked');
-    const pillCls  = avail ? 'pill-active': (w===2?'pill-soon':'pill-locked');
-    const pillTxt  = avail ? 'En cours'   : (w===2?'Bientôt':'À venir');
-    const subtitle = meta.subtitle ? ` — ${meta.subtitle}` : '';
-    row.innerHTML = `
-      <div class="wk-badge ${badgeCls}">${w}</div>
-      <div class="wk-info">
-        <div class="wk-title">Semaine ${w}${subtitle}</div>
-        <div class="wk-sub">${avail?'1 550 kcal · 7 jours · Air fryer inclus':'Disponible prochainement'}</div>
-        ${w===3?'<div class="wk-cycle" style="color:var(--rose)">🩷 Semaine règles</div>':''}
-      </div>
-      <span class="wk-pill ${pillCls}">${pillTxt}</span>`;
-    if(avail) row.onclick = () => openWeek(w);
-    list.appendChild(row);
-  }
-}
-
-// ══════════════════════════════════════════════════════
-//  WEEK OVERLAY
-// ══════════════════════════════════════════════════════
-function openWeek(w) {
-  currentWeek = w; currentDay = 'Lundi';
-  showingCourses=false; showingBilan=false; showingBank=false;
-  document.getElementById('week-screen-title').textContent = 'Semaine ' + w + ' · 23 juin → 29 juin';
-  document.getElementById('bsc-dates').textContent = '23 juin → 29 juin';
-  document.getElementById('week-screen').classList.add('open');
-  document.getElementById('teaser-next').style.display = 'flex';
-  resetSections();
-  renderDayPills();
-  renderMeals();
-  renderWater();
-  updateWeekCheckCount();
-  updatePasSemaine();
-}
-function closeWeek() { document.getElementById('week-screen').classList.remove('open'); }
-function resetSections() {
-  document.getElementById('courses-section').style.display='none';
-  document.getElementById('bilan-section').style.display='none';
-  document.getElementById('meals-bubbles').style.display='flex';
-}
-
-// ══════════════════════════════════════════════════════
-//  PILLS NAVIGATION
-// ══════════════════════════════════════════════════════
-function renderDayPills() {
-  const s = document.getElementById('days-scroll');
-  s.innerHTML = '';
-  // Courses
-  addPill(s,'🛒 Courses','pill-te',toggleCourses);
-  // Jours
-  DAYS_ORDER.forEach(day => {
-    const key = 'w1-'+day;
-    const checks = mealChecks[key]||[];
-    const meals = WEEK_DATA.days[day]||[];
-    const total = meals.filter(m=>m.kcal>0).length;
-    const done  = total>0 && checks.length>=total;
-    const p = document.createElement('div');
-    p.className='day-pill'+(day===currentDay?' active':'')+(done?' done-day':'');
-    p.textContent=day.slice(0,3)+(done?' ✓':'');
-    p.onclick=()=>selectDay(day);
-    s.appendChild(p);
-  });
-  // Banque recettes
-  addPill(s,'🍽️ Plats','pill-vl',()=>showBank('plats'));
-  addPill(s,'🍮 Desserts','pill-ro',()=>showBank('desserts'));
-  addPill(s,'📋 Bilan','pill-vl',toggleBilan);
-  addPill(s,'📄 PDF recettes','pill-te',exportWeekPDF);
-}
-function addPill(container, label, cls, fn) {
-  const p = document.createElement('div');
-  p.className='day-pill '+cls; p.textContent=label; p.onclick=fn;
-  container.appendChild(p);
-}
-function selectDay(day) {
-  currentDay=day; showingCourses=false; showingBilan=false; showingBank=false;
-  resetSections(); renderDayPills(); renderMeals(); updatePasSemaine();
-}
-
-// ══════════════════════════════════════════════════════
-//  REPAS DU JOUR
-// ══════════════════════════════════════════════════════
-function renderMeals() {
-  const meals = WEEK_DATA.days[currentDay]||[];
-  const area = document.getElementById('meals-bubbles');
-  if(!meals.length){ area.innerHTML='<div style="text-align:center;padding:32px;color:var(--text-soft)">Aucun repas pour ce jour</div>'; return; }
-  const checkKey = 'w1-'+currentDay;
-  const checks = mealChecks[checkKey]||[];
-
-  const dejIdx    = meals.findIndex(m=>m.type==='dej');
-  const dinIdx    = meals.findIndex(m=>m.type==='din');
-  const desMidiIdx= meals.findIndex(m=>m.id&&m.id.includes('des-midi'));
-  const desSoirIdx= meals.findIndex(m=>m.id&&m.id.includes('des-soir'));
-  const colMatin  = meals.find(m=>m.type==='col'&&/matin/i.test(m.label));
-  const colAM     = meals.find(m=>m.type==='col'&&/après|apres/i.test(m.label));
-
-  function getBubbleHtml(meal, idx, scaleRatio) {
-    const replKey = 'w1-'+currentDay+'-'+idx;
-    const repl = mealReplacements[replKey];
-    const bankR = repl ? BANK_RECIPES.find(r=>r.id===repl.id) : null;
-    const dm = bankR ? {...meal, name:bankR.name, kcal:bankR.kcal, p:bankR.p, g:bankR.g, l:bankR.l} : meal;
-    const display = scaleRatio && scaleRatio!==1 ? {...dm, kcal:Math.round(dm.kcal*scaleRatio)} : dm;
-    const checked = checks.includes(idx);
-    const dotCls  = {pdj:'dot-pdj',col:'dot-col',dej:'dot-dej',din:'dot-din',des:'dot-des'}[meal.type]||'dot-dej';
-    const tags = (meal.af&&!repl?'<span class="tag tag-af">🔥 Air fryer</span>':'') + (meal.transport&&!repl?`<span class="tag tag-transport">📦 ${meal.transport}</span>`:'');
-    const replBadge = repl ? `<span class="meal-replaced-badge">🔄 Remplacé · <button style="background:none;border:none;color:var(--violet);font-size:10px;font-weight:700;cursor:pointer;font-family:var(--font);padding:0" onclick="restoreMeal(${idx},event)">↩ Annuler</button></span>` : '';
-    return `<div class="meal-bubble${checked?' checked':''}" onclick="${bankR?`openBankRecipe('${bankR.id}')`:`openRecipe(${idx})`}">
-      <div class="meal-left">
-        ${replBadge}
-        <div class="meal-type-row"><div class="type-dot ${dotCls}"></div><div class="meal-type-label">${meal.label}</div></div>
-        <div class="meal-name">${display.name}</div>
-        <div class="meal-kcal">${display.kcal} kcal · P${display.p}g · G${display.g}g · L${display.l}g</div>
-        ${tags?`<div class="meal-tags">${tags}</div>`:''}
-      </div>
-      <div class="meal-check${checked?' checked':''}" onclick="event.stopPropagation();toggleCheck(${idx})">${checked?'✓':''}</div>
-      <div class="meal-arrow">›</div>
-    </div>`;
-  }
-
-  function sectionTitle(t) { return `<div class="meal-section-title">${t}<div class="meal-section-line"></div></div>`; }
-  function dessertToggle(key, isOn) {
-    return `<div class="dessert-toggle-row">
-      <span class="dessert-toggle-label">🍰 Dessert</span>
-      <button class="dessert-toggle-btn${isOn?' on':''}" onclick="toggleDessert('${key}')"><span class="dessert-toggle-knob"></span></button>
-    </div>`;
-  }
-
-  let html = '';
-  // PDJ
-  meals.filter(m=>m.type==='pdj').forEach(m=>{ const i=meals.indexOf(m); html+=sectionTitle('☀️ Petit-déjeuner'); html+=getBubbleHtml(m,i); });
-  // Collation matin
-  if(colMatin){ const i=meals.indexOf(colMatin); html+=sectionTitle('🍎 Collation matin'); html+=getBubbleHtml(colMatin,i); }
-  // Déjeuner + dessert
-  if(dejIdx>=0) {
-    html+=sectionTitle('🌞 Déjeuner');
-    const tkMidi='w1-'+currentDay+'-dej';
-    const desOn = dessertToggles[tkMidi]!==false;
-    if(desMidiIdx>=0){
-      html+=dessertToggle(tkMidi, desOn);
-      const ratio = desOn ? Math.round((meals[dejIdx].kcal-Math.min(meals[desMidiIdx].kcal*0.25, meals[dejIdx].kcal*0.25))/meals[dejIdx].kcal*100)/100 : 1;
-      html+=getBubbleHtml(meals[dejIdx], dejIdx, desOn?ratio:1);
-      if(desOn) html+=getBubbleHtml(meals[desMidiIdx], desMidiIdx);
-    } else {
-      html+=getBubbleHtml(meals[dejIdx], dejIdx);
-    }
-  }
-  // Collation AM
-  if(colAM){ const i=meals.indexOf(colAM); html+=sectionTitle('🍎 Collation après-midi'); html+=getBubbleHtml(colAM,i); }
-  // Dîner + dessert
-  if(dinIdx>=0) {
-    html+=sectionTitle('🌙 Dîner');
-    const tkSoir='w1-'+currentDay+'-din';
-    const desOn = dessertToggles[tkSoir]!==false;
-    if(desSoirIdx>=0){
-      html+=dessertToggle(tkSoir, desOn);
-      const ratio = desOn ? Math.round((meals[dinIdx].kcal-Math.min(meals[desSoirIdx].kcal*0.25, meals[dinIdx].kcal*0.25))/meals[dinIdx].kcal*100)/100 : 1;
-      html+=getBubbleHtml(meals[dinIdx], dinIdx, desOn?ratio:1);
-      if(desOn) html+=getBubbleHtml(meals[desSoirIdx], desSoirIdx);
-    } else {
-      html+=getBubbleHtml(meals[dinIdx], dinIdx);
-    }
-  }
-  area.innerHTML = html;
-  updateDayTotal();
-}
-
-function toggleDessert(key) {
-  dessertToggles[key] = !(dessertToggles[key]!==false);
-  sS('dessertToggles', dessertToggles);
-  renderMeals();
-}
-function toggleCheck(i) {
-  const key='w1-'+currentDay; let checks=mealChecks[key]||[];
-  if(checks.includes(i)) checks=checks.filter(x=>x!==i); else checks.push(i);
-  mealChecks[key]=checks; sS('mealChecks',mealChecks);
-  renderMeals(); renderDayPills(); updateWeekCheckCount();
-}
-function updateWeekCheckCount() {
-  let total=0,done=0;
-  DAYS_ORDER.forEach(day=>{
-    const meals=WEEK_DATA.days[day]||[];
-    meals.forEach((m,i)=>{ if(m.kcal>0){total++;if((mealChecks['w1-'+day]||[]).includes(i))done++;} });
-  });
-  const el=document.getElementById('bsc-repas');
-  if(el) el.textContent=done+'/'+total;
-}
-function updateDayTotal() {
-  const meals=WEEK_DATA.days[currentDay]||[];
-  let total=0;
-  const dejIdx=meals.findIndex(m=>m.type==='dej');
-  const dinIdx=meals.findIndex(m=>m.type==='din');
-  const desMidiIdx=meals.findIndex(m=>m.id&&m.id.includes('des-midi'));
-  const desSoirIdx=meals.findIndex(m=>m.id&&m.id.includes('des-soir'));
-  meals.forEach((m,i)=>{ if(i===dejIdx||i===dinIdx||i===desMidiIdx||i===desSoirIdx)return; total+=m.kcal||0; });
-  if(dejIdx>=0) {
-    const tkM='w1-'+currentDay+'-dej';const desOn=dessertToggles[tkM]!==false;
-    total+=meals[dejIdx].kcal;
-    if(desMidiIdx>=0&&desOn) total+=meals[desMidiIdx].kcal;
-  }
-  if(dinIdx>=0) {
-    const tkS='w1-'+currentDay+'-din';const desOn=dessertToggles[tkS]!==false;
-    total+=meals[dinIdx].kcal;
-    if(desSoirIdx>=0&&desOn) total+=meals[desSoirIdx].kcal;
-  }
-  const el=document.getElementById('day-total-val');
-  if(el) el.textContent=total+' kcal';
-}
-
-// ══════════════════════════════════════════════════════
-//  COURSES
-// ══════════════════════════════════════════════════════
-function toggleCourses() {
-  showingCourses=!showingCourses;
-  if(showingCourses){showingBilan=false;showingBank=false;}
-  document.getElementById('courses-section').style.display=showingCourses?'block':'none';
-  document.getElementById('bilan-section').style.display='none';
-  document.getElementById('meals-bubbles').style.display=showingCourses?'none':'flex';
-  if(showingCourses)renderCourses();
-}
-function renderCourses() {
-  let html='<div class="courses-wrap">';
-  html+=`<button class="pdf-btn" onclick="exportCoursesPDF()">📄 Exporter la liste en PDF</button>`;
-  Object.entries(WEEK_DATA.courses).forEach(([cat,items])=>{
-    html+=`<div class="courses-cat-title">${cat}</div>`;
-    items.forEach((item,i)=>{
-      const key='c-'+cat+'-'+i;const checked=courseChecks[key]||false;
-      html+=`<div class="course-row"><div class="course-chk${checked?' checked':''}" onclick="toggleCourse('${key}',this)">${checked?'✓':''}</div><span class="course-label" style="${checked?'text-decoration:line-through;color:var(--text-soft)':''}">${item.l}</span><span class="course-qty">${item.q}</span></div>`;
-    });
-  });
-  document.getElementById('courses-section').innerHTML=html+'</div>';
-}
-function toggleCourse(key,el) {
-  const c=!(courseChecks[key]||false);courseChecks[key]=c;sS('courseChecks',courseChecks);
-  el.className='course-chk'+(c?' checked':'');el.textContent=c?'✓':'';
-  el.nextElementSibling.style.textDecoration=c?'line-through':'';
-  el.nextElementSibling.style.color=c?'var(--text-soft)':'';
-}
-
-// ══════════════════════════════════════════════════════
-//  BANQUE RECETTES
-// ══════════════════════════════════════════════════════
-function showBank(type) {
-  showingBank=true;showingCourses=false;showingBilan=false;
-  document.getElementById('courses-section').style.display='none';
-  document.getElementById('bilan-section').style.display='none';
-  document.getElementById('meals-bubbles').style.display='flex';
-  const area=document.getElementById('meals-bubbles');
-  const filtered=type==='desserts'?BANK_RECIPES.filter(r=>r.label==='Dessert'):BANK_RECIPES.filter(r=>r.label!=='Dessert');
-  const label=type==='desserts'?'🍮 Desserts':'🍽️ Plats & Salades';
-  let html=`<div class="bank-section-title">${label}</div>`;
-  filtered.forEach(r=>{
-    html+=`<div class="bank-card" onclick="openBankRecipe('${r.id}')">
-      <div style="flex:1">
-        <div style="font-size:10px;font-weight:700;color:var(--text-soft);text-transform:uppercase;margin-bottom:3px">${r.label} · ⏱ ${r.time}</div>
-        <div class="bank-card-name">${r.name}</div>
-        <div class="bank-card-meta">${r.kcal} kcal · P${r.p}g · G${r.g}g · L${r.l}g</div>
-      </div>
-      <div class="bank-card-arrow">›</div>
-    </div>`;
-  });
-  area.innerHTML=html;
-}
-
-// ══════════════════════════════════════════════════════
-//  COMPAGNONS DANS RECETTE
-// ══════════════════════════════════════════════════════
-function renderRecipeCompanions() {
-  const el = document.getElementById('recipe-companions');
-  if(!el) return;
-  // Recharger les compagnons depuis le localStorage (mis à jour en partie 1)
-  companions = gS('companions', []);
-  if(!companions.length) {
-    el.innerHTML = `<span class="rc-label">Cuisiner avec :</span><span class="rc-none">Aucun compagnon enregistré</span>`;
-    return;
-  }
-  let html = `<span class="rc-label">Cuisiner avec :</span><div class="rc-avatars">`;
-  companions.forEach((c,i) => {
-    const sel = selectedCmp.includes(i);
-    html += `<div class="rc-avatar${sel?' selected':''}"
-      style="background:linear-gradient(135deg,var(--rose-light),var(--violet-light))"
-      onclick="toggleCmpRecipe(${i})" title="${c.name}">${c.emoji||'👤'}</div>`;
-  });
-  html += `</div>`;
-  el.innerHTML = html;
-}
-
-function toggleCmpRecipe(i) {
-  const idx = selectedCmp.indexOf(i);
-  if(idx>=0) selectedCmp.splice(idx,1); else selectedCmp.push(i);
-  renderRecipeCompanions();
-  // Reconstruire le body avec les nouvelles colonnes
-  const recipe = currentMealIdx >= 0
-    ? WEEK_DATA.recipes[WEEK_DATA.days[currentDay][currentMealIdx]?.id]
-    : BANK_RECIPES.find(r => r.id === currentMeal?.id);
-  if(recipe) document.getElementById('rm-body').innerHTML = buildRecipeBody(recipe);
-}
-
-function calcTarget(poids, taille, genre) {
-  const bmr = genre==='F' ? 10*poids+6.25*taille-5*30-161 : 10*poids+6.25*taille-5*30+5;
-  return Math.round(bmr*1.4-400);
-}
-
-function changePortion(delta) {
-  currentPortion = Math.max(1, Math.min(6, currentPortion + delta));
-  document.getElementById('portion-count').textContent = currentPortion;
-  const recipe = currentMealIdx >= 0
-    ? WEEK_DATA.recipes[WEEK_DATA.days[currentDay][currentMealIdx]?.id]
-    : BANK_RECIPES.find(r => r.id === currentMeal?.id);
-  if(recipe) document.getElementById('rm-body').innerHTML = buildRecipeBody(recipe);
-}
-
-// ══════════════════════════════════════════════════════
-//  RECIPE MODAL
-// ══════════════════════════════════════════════════════
-function openRecipe(idx) {
-  const meals=WEEK_DATA.days[currentDay]||[];
-  const meal=meals[idx]; if(!meal)return;
-  currentMeal=meal; currentMealIdx=idx;
-  currentPortion=1; selectedCmp=[];
-  const recipe=WEEK_DATA.recipes[meal.id];
-  document.getElementById('rm-type').textContent=meal.label+(meal.af?' · 🔥 Air fryer':'');
-  document.getElementById('rm-title').textContent=meal.name;
-  document.getElementById('rm-desc').textContent=meal.desc||'';
-  document.getElementById('rm-macros').innerHTML=`<span class="macro-chip chip-kcal">${meal.kcal} kcal</span><span class="macro-chip chip-p">P ${meal.p}g</span><span class="macro-chip chip-g">G ${meal.g}g</span><span class="macro-chip chip-l">L ${meal.l}g</span>`;
-  document.getElementById('portion-count').textContent = 1;
-  renderRecipeCompanions();
-  document.getElementById('rm-body').innerHTML=recipe?buildRecipeBody(recipe):buildSimpleBody(meal);
-  document.getElementById('btn-replace-recipe').style.display='flex';
-  document.getElementById('recipe-modal').classList.add('open');
-}
-function openBankRecipe(id) {
-  const r=BANK_RECIPES.find(x=>x.id===id);if(!r)return;
-  currentMeal={...r, label:r.label+' · Banque de recettes'};currentMealIdx=-1;
-  currentPortion=1; selectedCmp=[];
-  document.getElementById('rm-type').textContent=r.label+' · Banque de recettes';
-  document.getElementById('rm-title').textContent=r.name;
-  document.getElementById('rm-desc').textContent='⏱ '+r.time;
-  document.getElementById('rm-macros').innerHTML=`<span class="macro-chip chip-kcal">${r.kcal} kcal</span><span class="macro-chip chip-p">P ${r.p}g</span><span class="macro-chip chip-g">G ${r.g}g</span><span class="macro-chip chip-l">L ${r.l}g</span>`;
-  document.getElementById('portion-count').textContent = 1;
-  renderRecipeCompanions();
-  document.getElementById('rm-body').innerHTML=buildRecipeBody(r);
-  document.getElementById('btn-replace-recipe').style.display='none';
-  document.getElementById('recipe-modal').classList.add('open');
-}
-function buildRecipeBody(recipe) {
-  let html='';
-  if(recipe.desc) html+=`<p style="font-size:13px;color:var(--text-mid);line-height:1.6;margin-bottom:12px">${recipe.desc}</p>`;
-  if(recipe.ingredients) {
-    html+=`<div class="ing-section-title">Ingrédients</div>`;
-    const hasCmp = selectedCmp.length > 0;
-    if(hasCmp) {
-      const cmpNames = selectedCmp.map(i=>companions[i]?.name||'').join(' + ');
-      html+=`<table class="ing-table"><thead><tr>
-        <th>Ingrédient</th>
-        <th style="color:var(--rose)">Moi (×${currentPortion})</th>
-        <th style="color:var(--violet)">${cmpNames} (×${currentPortion})</th>
-      </tr></thead><tbody>`;
-      recipe.ingredients.forEach(ing => {
-        const myQty = formatQty(ing.base * currentPortion, ing.unit);
-        // Calculer ratio kcal du compagnon vs moi (1550 kcal base)
-        const avgRatio = selectedCmp.reduce((acc, ci) => {
-          const c = companions[ci];
-          if(!c?.poids || !c?.taille) return acc + 1.15;
-          return acc + calcTarget(parseFloat(c.poids), parseFloat(c.taille), c.genre) / 1550;
-        }, 0) / selectedCmp.length;
-        const cmpQty = formatQty(ing.base * currentPortion * avgRatio, ing.unit);
-        html+=`<tr>
-          <td>${ing.name}</td>
-          <td style="font-weight:800;color:var(--rose)">${myQty}</td>
-          <td style="font-weight:800;color:var(--violet)">${cmpQty}</td>
-        </tr>`;
-      });
-      html+='</tbody></table>';
-    } else {
-      html+=`<table class="ing-table"><thead><tr><th>Ingrédient</th><th>Quantité${currentPortion>1?' (×'+currentPortion+')':''}</th></tr></thead><tbody>`;
-      recipe.ingredients.forEach(ing => {
-        html+=`<tr><td>${ing.name}</td><td>${formatQty(ing.base * currentPortion, ing.unit)}</td></tr>`;
-      });
-      html+='</tbody></table>';
-    }
-  }
-  html+=`<div class="ing-section-title">Étapes de préparation</div>`+recipe.steps;
-  return html;
-}
-
-function formatQty(val, unit) {
-  if(!unit || unit==='') return val%1===0 ? val+'' : val.toFixed(1);
-  if(unit==='g' || unit==='ml') return Math.round(val) + ' ' + unit;
-  if(unit==='tsp' || unit==='tbsp') return (Math.round(val*4)/4) + ' ' + unit;
-  if(unit==='entier') { const v=Math.round(val*4)/4; return v%1===0?v+'':v+''; }
-  return (Math.round(val*10)/10) + ' ' + unit;
-}
-function buildSimpleBody(meal) {
-  return `<p style="font-size:14px;color:var(--text-mid);line-height:1.7">${meal.desc||'Recette détaillée à venir.'}</p>
-  <div style="margin-top:12px;padding:10px 12px;background:var(--violet-light);border-radius:10px;font-size:12px;color:var(--violet);font-weight:600">💡 La recette détaillée sera ajoutée prochainement.</div>`;
-}
-function closeRecipe(){document.getElementById('recipe-modal').classList.remove('open');currentMeal=null;currentPortion=1;selectedCmp=[];}
-function closeRecipeIfBackdrop(e){if(e.target===document.getElementById('recipe-modal'))closeRecipe();}
-
-function shareRecipe() {
-  if(!currentMeal)return;
-  const txt=`🌸 ${currentMeal.name}\n\n📊 ${currentMeal.kcal} kcal · P${currentMeal.p}g · G${currentMeal.g}g · L${currentMeal.l}g\n\n📝 ${currentMeal.desc||''}`;
-  if(navigator.share){navigator.share({title:currentMeal.name,text:txt}).catch(()=>{});}
-  else{navigator.clipboard.writeText(txt).then(()=>showToast('Recette copiée ✓'));}
-}
-
-function exportRecipePDF() {
-  if(typeof window.jspdf==='undefined'){showToast('jsPDF en cours de chargement…');return;}
-  const{jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});
-  const m=currentMeal;if(!m)return;
-  doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(255,61,114);
-  doc.text((m.label||'').toUpperCase(),18,22);
-  doc.setFontSize(18);doc.setTextColor(45,27,51);
-  doc.text(m.name,18,32);
-  doc.setFontSize(10);doc.setTextColor(120,120,120);
-  doc.text(`${m.kcal} kcal · P${m.p}g · G${m.g}g · L${m.l}g`,18,40);
-  doc.setDrawColor(255,61,114);doc.setLineWidth(0.4);doc.line(18,44,192,44);
-  if(m.desc){doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(80,80,80);const lines=doc.splitTextToSize(m.desc,174);doc.text(lines,18,52);}
-  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(180,180,180);doc.text('Mon Programme Nutrition',18,285);
-  doc.save('recette-'+m.name.toLowerCase().replace(/[^a-z0-9]/g,'-').slice(0,30)+'.pdf');
-  showToast('PDF téléchargé ✓');
-}
-
-// ══════════════════════════════════════════════════════
-//  REMPLACER REPAS
-// ══════════════════════════════════════════════════════
-function openReplaceFromRecipe() {
-  if(currentMealIdx<0)return;
-  const meals=WEEK_DATA.days[currentDay]||[];
-  const meal=meals[currentMealIdx];
-  pendingReplaceIdx=currentMealIdx;
-  document.getElementById('replace-meal-name-lbl').textContent=meal.name;
-  showReplaceSource();
-  closeRecipe();
-  document.getElementById('replace-modal').classList.add('open');
-}
-function showReplaceSource() {
-  document.getElementById('replace-list').innerHTML=`
-    <div class="replace-source-card" onclick="showReplaceList('plats')">
-      <span style="font-size:26px">🍽️</span>
-      <div><div class="replace-source-title">Plats cuisinés</div><div class="replace-source-sub">Déjeuners, dîners, plats à partager</div></div>
-      <div style="font-size:16px;color:var(--text-soft)">›</div>
-    </div>
-    <div class="replace-source-card" onclick="showReplaceList('desserts')">
-      <span style="font-size:26px">🍮</span>
-      <div><div class="replace-source-title">Desserts</div><div class="replace-source-sub">Tous les desserts de la banque</div></div>
-      <div style="font-size:16px;color:var(--text-soft)">›</div>
-    </div>`;
-}
-function showReplaceList(type) {
-  const filtered=type==='desserts'?BANK_RECIPES.filter(r=>r.label==='Dessert'):BANK_RECIPES.filter(r=>r.label!=='Dessert');
-  let html=`<button class="replace-back-btn" onclick="showReplaceSource()">‹ Choisir une autre source</button>`;
-  html+=`<div class="replace-cat-title">${type==='desserts'?'🍮 Desserts':'🍽️ Plats & Salades'}</div>`;
-  filtered.forEach(r=>{
-    html+=`<div class="replace-item" onclick="confirmReplace('${r.id}')">
-      <div><div class="replace-item-name">${r.name}</div><div class="replace-item-meta">${r.kcal} kcal · ⏱ ${r.time}</div></div>
-      <div style="font-size:14px;color:var(--text-soft)">›</div>
-    </div>`;
-  });
-  document.getElementById('replace-list').innerHTML=html;
-}
-function confirmReplace(bankId) {
-  const key='w1-'+currentDay+'-'+pendingReplaceIdx;
-  mealReplacements[key]={id:bankId};sS('mealReplacements',mealReplacements);
-  closeReplaceModal();
-  setTimeout(()=>{document.getElementById('meals-bubbles').style.display='flex';renderMeals();renderDayPills();},50);
-  showToast('Repas remplacé ✓');
-}
-function restoreMeal(idx,e) {
-  e.stopPropagation();
-  const key='w1-'+currentDay+'-'+idx;
-  delete mealReplacements[key];sS('mealReplacements',mealReplacements);
-  setTimeout(()=>{renderMeals();renderDayPills();},50);
-  showToast('Repas original restauré ✓');
-}
-function closeReplaceModal(){document.getElementById('replace-modal').classList.remove('open');}
-function closeReplaceIfBackdrop(e){if(e.target===document.getElementById('replace-modal'))closeReplaceModal();}
-
-// ══════════════════════════════════════════════════════
-//  BILAN
-// ══════════════════════════════════════════════════════
-function toggleBilan() {
-  showingBilan=!showingBilan;
-  if(showingBilan){showingCourses=false;showingBank=false;}
-  document.getElementById('bilan-section').style.display=showingBilan?'block':'none';
-  document.getElementById('courses-section').style.display='none';
-  document.getElementById('meals-bubbles').style.display=showingBilan?'none':'flex';
-  if(showingBilan)renderBilanSection();
-}
-function renderBilanSection() {
-  const bilan=weeklyBilans[1];
-  const sec=document.getElementById('bilan-section');
-  if(!bilan){
-    sec.innerHTML=`<div class="bilan-empty" style="text-align:center;padding:32px 24px">
-      <div style="font-size:40px;margin-bottom:12px">📋</div>
-      <div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:6px">Pas encore de bilan</div>
-      <div style="font-size:13px;color:var(--text-mid);line-height:1.6">Le bilan se propose automatiquement le dernier jour de la semaine.</div>
-      <button class="btn-primary" style="max-width:280px;margin:14px auto 0" onclick="openBilanStep1()">Démarrer mon bilan →</button>
-    </div>`;
-    return;
-  }
-  const MOODS_MAP={difficile:'😞',moyen:'😕','plutot-bien':'🙂',bien:'😄',top:'🤩'};
-  const LABELS_MAP={difficile:'Difficile',moyen:'Moyen','plutot-bien':'Plutôt bien',bien:'Bien',top:'Top !'};
-  sec.innerHTML=`<div style="padding:0 18px">
-    <div class="bilan-read-hero">
-      <div class="bilan-read-mood">${MOODS_MAP[bilan.mood]||'🙂'}</div>
-      <div class="bilan-read-label">${LABELS_MAP[bilan.mood]||''}</div>
-      <div class="bilan-read-date">${bilan.date}</div>
-    </div>
-    <div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:8px">📏 Mesures du jour</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
-      ${bilan.poids?`<div style="background:var(--bg);border:1.5px solid var(--border);border-radius:14px;padding:10px 6px;text-align:center"><div style="font-size:16px;font-weight:800">${bilan.poids}kg</div><div style="font-size:9px;color:var(--text-soft);font-weight:700;text-transform:uppercase">Poids</div></div>`:''}
-      ${bilan.taille?`<div style="background:var(--bg);border:1.5px solid var(--border);border-radius:14px;padding:10px 6px;text-align:center"><div style="font-size:16px;font-weight:800">${bilan.taille}cm</div><div style="font-size:9px;color:var(--text-soft);font-weight:700;text-transform:uppercase">Taille</div></div>`:''}
-      ${bilan.hanches?`<div style="background:var(--bg);border:1.5px solid var(--border);border-radius:14px;padding:10px 6px;text-align:center"><div style="font-size:16px;font-weight:800">${bilan.hanches}cm</div><div style="font-size:9px;color:var(--text-soft);font-weight:700;text-transform:uppercase">Hanches</div></div>`:''}
-    </div>
-    ${bilan.motivation?`<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:5px">💪 Ce qui m'a motivée</div><div style="font-size:13px;color:var(--text-mid);line-height:1.6;padding:10px 12px;background:var(--bg);border-radius:12px;margin-bottom:12px">${bilan.motivation}</div>`:''}
-    <div style="display:flex;gap:8px;margin-top:4px">
-      <button class="bilan-btn-sec" onclick="openBilanStep1()">✏️ Modifier</button>
-      <button class="bilan-btn-pri" onclick="shareBilan()">📤 Partager</button>
-    </div>
-    <button class="btn-primary" style="margin-top:8px;background:var(--violet-light);color:var(--violet);box-shadow:none" onclick="exportBilanPDF()">📄 Exporter en PDF</button>
-  </div>`;
-}
-function openBilanStep1() {
-  const existing=weeklyBilans[1];
-  if(existing){
-    document.getElementById('bi-poids').value=existing.poids||'';
-    document.getElementById('bi-taille').value=existing.taille||'';
-    document.getElementById('bi-hanches').value=existing.hanches||'';
-    document.getElementById('bi-cuisses').value=existing.cuisses||'';
-    document.getElementById('bi-bras').value=existing.bras||'';
-    document.getElementById('bi-poitrine').value=existing.poitrine||'';
-  } else {
-    ['bi-poids','bi-taille','bi-hanches','bi-cuisses','bi-bras','bi-poitrine'].forEach(id=>document.getElementById(id).value='');
-  }
-  document.getElementById('bilan-step1-sub').textContent='29 juin — dernier jour de ta semaine 1';
-  document.getElementById('bilan-step1-modal').classList.add('open');
-}
-function closeBilanStep1(){document.getElementById('bilan-step1-modal').classList.remove('open');}
-function closeBilanStep1IfBackdrop(e){if(e.target===document.getElementById('bilan-step1-modal'))closeBilanStep1();}
-function bilanGoStep2() {
-  const poids=document.getElementById('bi-poids').value;
-  if(!poids){showToast('Entrez au moins votre poids');return;}
-  bilanStep1Data={poids,taille:document.getElementById('bi-taille').value,hanches:document.getElementById('bi-hanches').value,cuisses:document.getElementById('bi-cuisses').value,bras:document.getElementById('bi-bras').value,poitrine:document.getElementById('bi-poitrine').value};
-  closeBilanStep1();
-  const existing=weeklyBilans[1];
-  bilanMood=existing?existing.mood:null;
-  renderMoodSelectorBilan();
-  document.getElementById('bi-motivation').value=existing?existing.motivation||'':'';
-  document.getElementById('bi-difficultes').value=existing?existing.difficultes||'':'';
-  document.getElementById('bi-ressenti').value=existing?existing.ressenti||'':'';
-  document.getElementById('bilan-step2-modal').classList.add('open');
-}
-function closeBilanStep2(){document.getElementById('bilan-step2-modal').classList.remove('open');}
-function closeBilanStep2IfBackdrop(e){if(e.target===document.getElementById('bilan-step2-modal'))closeBilanStep2();}
-function bilanBackStep1(){closeBilanStep2();openBilanStep1();}
-// [DEDUP] MOODS already declared
-
-function renderMoodSelectorBilan(){
-  const c=document.getElementById('bilan-mood-selector');
-  c.innerHTML=MOODS.map(m=>`<button class="mood-btn-b${bilanMood===m.key?' selected':''}" onclick="selectBilanMood('${m.key}')"><span class="mood-emoji-b">${m.e}</span><span class="mood-label-b">${m.l}</span></button>`).join('');
-}
-function selectBilanMood(k){bilanMood=k;renderMoodSelectorBilan();}
-function saveBilan() {
-  if(!bilanSelectedMood){showToast('Choisis une humeur');return;}
-  weeklyBilans[1]={date:new Date().toLocaleDateString('fr-FR'),...bilanStep1Data,mood:bilanMood,motivation:document.getElementById('bi-motivation').value,difficultes:document.getElementById('bi-difficultes').value,ressenti:document.getElementById('bi-ressenti').value};
-  sS('weeklyBilans',weeklyBilans);
-  closeBilanStep2();showToast('Bilan enregistré ✓ 🌸');
-  showingBilan=true;
-  document.getElementById('bilan-section').style.display='block';
-  document.getElementById('meals-bubbles').style.display='none';
-  renderBilanSection();
-}
-function shareBilan(){
-  const b=weeklyBilans[1];if(!b)return;
-  const m=MOODS.find(x=>x.key===b.mood);
-  let txt=`🌸 Bilan de ma semaine 1\n\n📅 ${b.date}\n${m?m.e:''} Humeur : ${m?m.l:''}\n\n`;
-  if(b.poids)txt+=`⚖️ Poids : ${b.poids} kg\n`;
-  if(b.motivation)txt+=`\n💪 Ce qui m'a motivée :\n${b.motivation}\n`;
-  if(navigator.share){navigator.share({title:'Bilan semaine 1',text:txt}).catch(()=>{});}
-  else{navigator.clipboard.writeText(txt).then(()=>showToast('Bilan copié ✓'));}
-}
-function exportBilanPDF(){
-  if(typeof window.jspdf==='undefined'){showToast('jsPDF en cours de chargement…');return;}
-  const b=weeklyBilans[1];if(!b){showToast('Aucun bilan à exporter');return;}
-  const{jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});
-  doc.setFont('helvetica','bold');doc.setFontSize(18);doc.setTextColor(255,61,114);
-  doc.text('Bilan de la semaine 1',18,22);
-  doc.setDrawColor(255,61,114);doc.setLineWidth(0.4);doc.line(18,26,192,26);
-  doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(80,80,80);
-  const m=MOODS.find(x=>x.key===b.mood);
-  doc.text(`${m?m.e:''} Humeur : ${m?m.l:''}`,18,35);
-  doc.text(`Date : ${b.date}`,18,43);
-  if(b.poids) doc.text(`Poids : ${b.poids} kg`,18,51);
-  if(b.motivation){doc.setFont('helvetica','bold');doc.text('Ce qui m\'a motivée :',18,65);doc.setFont('helvetica','normal');const lines=doc.splitTextToSize(b.motivation,174);doc.text(lines,18,73);}
-  doc.setFontSize(8);doc.setTextColor(180,180,180);doc.text('Mon Programme Nutrition',18,285);
-  doc.save('bilan-semaine-1.pdf');showToast('PDF téléchargé ✓');
-}
-
-// ══════════════════════════════════════════════════════
-//  EXPORT PDF COURSES & RECETTES SEMAINE
-// ══════════════════════════════════════════════════════
-function exportCoursesPDF(){
-  if(typeof window.jspdf==='undefined'){showToast('jsPDF en cours de chargement…');return;}
-  const{jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});
-  const pw=doc.internal.pageSize.getWidth();let y=22;
-  doc.setFont('helvetica','bold');doc.setFontSize(18);doc.setTextColor(255,61,114);doc.text('Liste de courses — Semaine 1',18,y);y+=6;
-  doc.setDrawColor(255,61,114);doc.setLineWidth(0.4);doc.line(18,y,pw-18,y);y+=10;
-  Object.entries(WEEK_DATA.courses).forEach(([cat,items])=>{
-    if(y>265){doc.addPage();y=22;}
-    doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(45,27,51);doc.text(cat.toUpperCase(),18,y);y+=7;
-    doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(40,40,40);
-    items.forEach(item=>{if(y>278){doc.addPage();y=22;}doc.setDrawColor(150,150,150);doc.setLineWidth(0.3);doc.rect(18,y-3.5,4,4);doc.text(item.l,28,y);doc.setTextColor(120,120,120);doc.text(item.q,pw-18,y,{align:'right'});doc.setTextColor(40,40,40);y+=7;});y+=4;
-  });
-  doc.setFontSize(8);doc.setTextColor(180,180,180);doc.text('Mon Programme Nutrition',18,287);
-  doc.save('courses-semaine-1.pdf');showToast('PDF téléchargé ✓');
-}
-function exportWeekPDF(){
-  if(typeof window.jspdf==='undefined'){showToast('jsPDF en cours de chargement…');return;}
-  const{jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});
-  const pw=doc.internal.pageSize.getWidth();let first=true;
-  DAYS_ORDER.forEach(day=>{
-    const meals=WEEK_DATA.days[day]||[];
-    meals.filter(m=>m.kcal>0).forEach(meal=>{
-      if(!first)doc.addPage();first=false;
-      let y=22;
-      doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(255,61,114);doc.text((day+' · '+(meal.label||'')).toUpperCase(),18,y);y+=8;
-      doc.setFontSize(17);doc.setTextColor(45,27,51);const tl=doc.splitTextToSize(meal.name,pw-36);doc.text(tl,18,y);y+=tl.length*7+4;
-      doc.setFontSize(10);doc.setTextColor(120,120,120);doc.text(`${meal.kcal} kcal · P${meal.p}g · G${meal.g}g · L${meal.l}g`,18,y);y+=8;
-      doc.setDrawColor(255,61,114);doc.setLineWidth(0.4);doc.line(18,y,pw-18,y);y+=8;
-      const recipe=WEEK_DATA.recipes[meal.id];
-      if(meal.desc&&!recipe){doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(80,80,80);const dl=doc.splitTextToSize(meal.desc,pw-36);doc.text(dl,18,y);}
-      if(recipe&&recipe.ingredients){
-        doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(45,27,51);doc.text('INGRÉDIENTS',18,y);y+=7;
-        doc.setFont('helvetica','normal');doc.setFontSize(10);
-        recipe.ingredients.forEach(ing=>{if(y>278){doc.addPage();y=22;}doc.setTextColor(40,40,40);doc.text('• '+ing.name,18,y);doc.setTextColor(120,120,120);doc.text(ing.base+(ing.unit==='entier'?'':' '+ing.unit),pw-18,y,{align:'right'});y+=6;});
-      }
-      doc.setFontSize(8);doc.setTextColor(180,180,180);doc.text('Mon Programme Nutrition',18,287);
-    });
-  });
-  doc.save('recettes-semaine-1.pdf');showToast('Livret PDF téléchargé ✓');
-}
-
-// ══════════════════════════════════════════════════════
-//  TOAST
-// ══════════════════════════════════════════════════════
-
+let measures   = gS('measures', []);
+let seances    = gS('seances', []);
+let favoris    = gS('favoris', []);
+
+// ════════════════════════════════════════════════════
 //  DONNÉES DÉTAIL EXERCICES
 // ════════════════════════════════════════════════════
 const EXO_DETAILS = {
@@ -4347,7 +3364,19 @@ let logEval = null;
 let currentGroupe = null;
 
 // ════════════════════════════════════════════════════
+//  NAV
+// ════════════════════════════════════════════════════
+function goScreen(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  const m={'screen-home':'nav-home','screen-prog':'nav-prog','screen-sport':'nav-sport','screen-suivi':'nav-suivi'};
+  if(m[id]) document.getElementById(m[id]).classList.add('active');
+  if(id==='screen-suivi') renderSuivi();
+  if(id==='screen-sport') renderSport();
+}
 
+// ════════════════════════════════════════════════════
 //  SUIVI
 // ════════════════════════════════════════════════════
 function saveMeasure() {
@@ -4914,7 +3943,10 @@ function shareSeance() {
 let pasData    = gS('pasData', {});
 let pasObjectif = gS('pasObjectif', 8000);
 
-// todayKey defini dans js1
+function todayKey() {
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 
 function savePasSport() {
   const val = parseInt(document.getElementById('pas-sport-input').value) || 0;
@@ -5121,11 +4153,12 @@ function showToast(msg) {
 }
 
 // ════════════════════════════════════════════════════
-
-
-// =====================================================
 //  INIT
-// =====================================================
+// ════════════════════════════════════════════════════
+// handled by init
+
+
+// ── INIT ──────────────────────────────────────────────
 loadRecipesPlats();
 loadRecipesDesserts();
 loadRecipesSalades();
