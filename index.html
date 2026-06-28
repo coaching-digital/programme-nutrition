@@ -94,6 +94,34 @@ function checkWeeklyReviewPrompt(){
   setTimeout(()=>openBilanStep1(w),600);
 }
 
+
+// ── UTILITAIRES DATES ─────────────────────────────────
+const JS_WEEKDAY_TO_NAME = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+
+function getWeekDates(weekNum) {
+  if(!startDate) return null;
+  const start = new Date(startDate);
+  const wStart = new Date(start.getTime() + (weekNum-1)*7*86400000);
+  const wEnd   = new Date(wStart.getTime() + 6*86400000);
+  const fmt = d => d.toLocaleDateString('fr-FR', {day:'numeric', month:'short'});
+  return { start:fmt(wStart), end:fmt(wEnd), startD:wStart, endD:wEnd };
+}
+
+function getDisplayDaysOrder() {
+  if(!startDate) return DAYS_ORDER;
+  const name = JS_WEEKDAY_TO_NAME[new Date(startDate).getDay()];
+  const idx  = DAYS_ORDER.indexOf(name);
+  if(idx <= 0) return DAYS_ORDER;
+  return DAYS_ORDER.slice(idx).concat(DAYS_ORDER.slice(0, idx));
+}
+
+function getDateForDay(weekNum, dayName) {
+  const dates = getWeekDates(weekNum); if(!dates) return null;
+  const idx = getDisplayDaysOrder().indexOf(dayName); if(idx < 0) return null;
+  const d = new Date(dates.startD.getTime() + idx*86400000);
+  return d.toLocaleDateString('fr-FR', {day:'numeric', month:'short'});
+}
+
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
